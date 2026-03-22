@@ -1,0 +1,64 @@
+{
+  "case_id": "6C27DFAC",
+  "user_name": "VSP",
+  "user_email": "info@VSP.ch",
+  "situation": "ich wechsle meinen Job. Was brauche ich für meine BVG?",
+  "structured_context": {
+    "use_case": "STELLENWECHSEL",
+    "actors_involved": [
+      "OLD_PK",
+      "NEW_PK"
+    ],
+    "avs_required": false,
+    "user_summary": "ich wechsle meinen Job. Was brauche ich für meine BVG?",
+    "missing_info": []
+  },
+  "activated_actors": [
+    "OLD_PK",
+    "NEW_PK"
+  ],
+  "requests": {
+    "OLD_PK": {
+      "sent_at": 1774196427.651613,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    },
+    "NEW_PK": {
+      "sent_at": 1774196427.651613,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    }
+  },
+  "institution_responses": {
+    "OLD_PK": {
+      "freizuegigkeit_chf": 45200,
+      "austrittsdatum": "31. März 2025",
+      "status": "Austritt bestätigt"
+    },
+    "NEW_PK": {
+      "eintrittsdatum": "1. April 2025",
+      "bvg_koordinationsabzug": 26460,
+      "bvg_pflicht": true
+    }
+  },
+  "institution_responded": {
+    "OLD_PK": true,
+    "NEW_PK": true
+  },
+  "actor_states": {
+    "OLD_PK": "COMPLETED",
+    "NEW_PK": "COMPLETED",
+    "AVS": "SKIPPED"
+  },
+  "orchestrator_state": "USER_VALIDATION",
+  "final_decision": null,
+  "created_at": "2026-03-22T16:26:25",
+  "follow_up_requests": {},
+  "follow_up_questions": {},
+  "institution_response_date": {
+    "OLD_PK": "2026-03-22T17:21:50",
+    "NEW_PK": "2026-03-22T17:07:05"
+  }
+}
