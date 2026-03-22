@@ -1,8 +1,8 @@
 {
-  "case_id": "9A210CED",
+  "case_id": "F092909F",
   "user_name": "VSP",
   "user_email": "christopher.alvaro.o@gmail.com",
-  "situation": "Ich wechle meinen Job per 5. April von Migors AG zur Coop Ag. Was brauche ich für meine BVG?",
+  "situation": "ich wechsle meinen job per 5. april. was brauche ich in bezug auf meine BVG?",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,7 +10,7 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "Ich wechle meinen Job per 5. April von Migors AG zur Coop Ag. Was brauche ich für meine BVG?",
+    "user_summary": "ich wechsle meinen job per 5. april. was brauche ich in bezug auf meine BVG?",
     "missing_info": []
   },
   "activated_actors": [
@@ -19,13 +19,13 @@
   ],
   "requests": {
     "NEW_PK": {
-      "sent_at": 1774199791.876884,
+      "sent_at": 1774200870.167423,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
     "OLD_PK": {
-      "sent_at": 1774199791.876884,
+      "sent_at": 1774200870.167423,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }

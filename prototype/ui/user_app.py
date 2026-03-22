@@ -2417,6 +2417,68 @@ def _inst_case_overview(case: dict) -> None:
             st.caption("Noch keine Ereignisse.")
 
 
+def _render_person_summary_card(case: dict) -> None:
+    """Two-column 'Angaben zur versicherten Person' info card."""
+    ctx = case.get("structured_context", {})
+    doc = case.get("extracted_doc_data", {})
+
+    def _fhtml(label: str, value: str) -> str:
+        return (
+            f'<div style="margin-bottom:0.7rem;">'
+            f'<div style="color:#C9A84C; font-size:0.62rem; letter-spacing:0.2em; '
+            f'font-variant:small-caps; margin-bottom:0.15rem;">{label}</div>'
+            f'<div style="color:#FFFFFF; font-size:0.88rem;">{value}</div>'
+            f'</div>'
+        )
+
+    raw_sum   = ctx.get("user_summary", "") or ""
+    situation = (raw_sum[:100] + "…") if len(raw_sum) > 100 else (raw_sum or "—")
+
+    core_left = [
+        ("NAME",      case.get("user_name", "—") or "—"),
+        ("E-MAIL",    case.get("user_email", "—") or "—"),
+        ("FALL-ID",   case.get("case_id",    "—") or "—"),
+    ]
+    core_right = [
+        ("VERFAHREN", ctx.get("use_case", "STELLENWECHSEL")),
+        ("SITUATION", situation),
+    ]
+
+    doc_rows: list[tuple[str, str]] = []
+    if doc.get("ahv_nummer"):
+        doc_rows.append(("AHV-NUMMER",               str(doc["ahv_nummer"])))
+    if doc.get("pensionskasse"):
+        doc_rows.append(("BISHERIGE PENSIONSKASSE",   str(doc["pensionskasse"])))
+    if doc.get("freizuegigkeit_chf"):
+        doc_rows.append(("FREIZÜGIGKEITSGUTHABEN CHF", str(doc["freizuegigkeit_chf"])))
+    if doc.get("austrittsdatum"):
+        doc_rows.append(("AUSTRITTSDATUM",            str(doc["austrittsdatum"])))
+    if doc.get("eintrittsdatum"):
+        doc_rows.append(("EINTRITTSDATUM",            str(doc["eintrittsdatum"])))
+    if doc.get("email"):
+        doc_rows.append(("E-MAIL INSTITUTION",        str(doc["email"])))
+    if doc.get("telefon"):
+        doc_rows.append(("TELEFON INSTITUTION",       str(doc["telefon"])))
+
+    half = (len(doc_rows) + 1) // 2
+    left  = core_left  + doc_rows[:half]
+    right = core_right + doc_rows[half:]
+
+    with st.container(border=True):
+        st.markdown(
+            '<div style="color:#C9A84C; font-size:0.68rem; letter-spacing:0.25em; '
+            'margin-bottom:0.8rem;">ANGABEN ZUR VERSICHERTEN PERSON</div>',
+            unsafe_allow_html=True,
+        )
+        col_a, col_b = st.columns(2)
+        with col_a:
+            for lbl, val in left:
+                st.markdown(_fhtml(lbl, val), unsafe_allow_html=True)
+        with col_b:
+            for lbl, val in right:
+                st.markdown(_fhtml(lbl, val), unsafe_allow_html=True)
+
+
 def _inst_dashboard() -> None:
     """Institution dashboard — professional two-column layout with case overview."""
 
@@ -2541,6 +2603,9 @@ def _inst_dashboard() -> None:
                         f'</div>',
                         unsafe_allow_html=True,
                     )
+
+                    with st.expander("Angaben zur versicherten Person"):
+                        _render_person_summary_card(case)
 
                     # Requested document + fields
                     req_label  = _ACTOR_REQUEST_LABEL[actor]
@@ -2736,6 +2801,10 @@ def _inst_form() -> None:
         '<div class="hv-label" style="margin-bottom:0.8rem;">Anfrage bearbeiten</div>',
         unsafe_allow_html=True,
     )
+
+    # Case summary card — Angaben zur versicherten Person
+    _render_person_summary_card(case)
+    st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 
     # Two-column layout: left = incoming email, right = response form
     col_email, col_form = st.columns([5, 4], gap="large")
