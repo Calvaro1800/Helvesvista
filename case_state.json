@@ -1,8 +1,8 @@
 {
-  "case_id": "6C27DFAC",
+  "case_id": "9A210CED",
   "user_name": "VSP",
-  "user_email": "info@VSP.ch",
-  "situation": "ich wechsle meinen Job. Was brauche ich für meine BVG?",
+  "user_email": "christopher.alvaro.o@gmail.com",
+  "situation": "Ich wechle meinen Job per 5. April von Migors AG zur Coop Ag. Was brauche ich für meine BVG?",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,22 +10,22 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "ich wechsle meinen Job. Was brauche ich für meine BVG?",
+    "user_summary": "Ich wechle meinen Job per 5. April von Migors AG zur Coop Ag. Was brauche ich für meine BVG?",
     "missing_info": []
   },
   "activated_actors": [
-    "OLD_PK",
-    "NEW_PK"
+    "NEW_PK",
+    "OLD_PK"
   ],
   "requests": {
-    "OLD_PK": {
-      "sent_at": 1774196427.651613,
+    "NEW_PK": {
+      "sent_at": 1774199791.876884,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
-    "NEW_PK": {
-      "sent_at": 1774196427.651613,
+    "OLD_PK": {
+      "sent_at": 1774199791.876884,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -54,11 +54,13 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-03-22T16:26:25",
+  "created_at": "2026-03-22T17:38:39",
   "follow_up_requests": {},
   "follow_up_questions": {},
+  "institution_clarification_requests": {},
+  "user_clarification_responses": {},
   "institution_response_date": {
-    "OLD_PK": "2026-03-22T17:21:50",
-    "NEW_PK": "2026-03-22T17:07:05"
+    "OLD_PK": "2026-03-22T18:16:40",
+    "NEW_PK": "2026-03-22T18:16:40"
   }
 }

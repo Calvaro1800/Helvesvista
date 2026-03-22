@@ -511,6 +511,9 @@ def _init_session() -> None:
         "chat_history":     [],          # list of {question, answer}
         # Demo mode toggle
         "auto_sim_enabled": True,        # False → institutions must respond manually
+        # Document extraction (Feature 2)
+        "extracted_doc_data":  {},       # fields extracted from uploaded documents
+        "_doc_upload_names":   [],       # track uploaded file names to detect new uploads
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -664,18 +667,20 @@ def _render_sidebar() -> None:
                 unsafe_allow_html=True,
             )
             auto_sim = st.toggle(
-                "Institutionen-Simulation",
+                "Simulationsmodus",
                 value=st.session_state.get("auto_sim_enabled", True),
                 key="auto_sim_toggle",
                 help=(
-                    "EIN: Institutionen antworten automatisch nach "
-                    f"{AUTO_SIM_DELAY:.0f} Sekunden. "
-                    "AUS: Manuelle Antwort über das Institutionen-Portal erforderlich."
+                    "Ein: Institutionen antworten automatisch nach "
+                    f"{AUTO_SIM_DELAY:.0f} Sekunden (Demo-Modus). "
+                    "Aus: Institutionen antworten manuell über das Institutionen-Portal (Live-Modus)."
                 ),
             )
             st.session_state.auto_sim_enabled = auto_sim
-            if not auto_sim:
-                st.caption("Manuelle Simulation — Institutionen-Portal verwenden.")
+            if auto_sim:
+                st.caption("Demo-Modus")
+            else:
+                st.caption("Live-Modus")
 
         # ── Live orchestrator status (Versicherter only, when active) ─────────
         orch: Optional[HelveVistaOrchestrator] = st.session_state.orchestrator
@@ -730,39 +735,24 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
     )
 
     actor_name = ACTOR_LABELS[actor]
-    situation  = context.get("user_summary", context.get("situation", "Stellenwechsel"))
 
-    field_specs: dict[Actor, str] = {
-        Actor.OLD_PK: (
-            'freizuegigkeit_chf (Zahl in CHF, realistischer Betrag 20000-120000), '
-            'austrittsdatum (String "DD. Monat YYYY"), '
-            'status (String: "Austritt bestätigt" | "Austritt ausstehend")'
-        ),
-        Actor.NEW_PK: (
-            'eintrittsdatum (String "DD. Monat YYYY"), '
-            'bvg_koordinationsabzug (Zahl in CHF, realistisch 25000-30000), '
-            'bvg_pflicht (boolean)'
-        ),
-        Actor.AVS: (
-            'ik_auszug ("verfügbar" | "nicht verfügbar"), '
-            'beitragsjahre (ganze Zahl 1-45), '
-            'luecken (ganze Zahl 0-5, Anzahl Lückenjahre)'
-        ),
-    }
-
-    prompt = (
-        f"Du bist die {actor_name} im Schweizer Vorsorgesystem (BVG/AHV).\n"
-        f"Situation des Versicherten: {situation}\n"
-        f"Antworte als {actor_name} mit einem realistischen JSON-Objekt.\n"
-        f"Felder: {field_specs[actor]}\n"
-        f"Antworte NUR mit dem JSON-Objekt — kein weiterer Text."
+    system_prompt = (
+        f"Du bist {actor_name}, eine Schweizer Vorsorgeeinrichtung. "
+        f"Beantworte die Anfrage von HelveVista professionell und realistisch.\n\n"
+        f"Kontext: {json.dumps(context, ensure_ascii=False)}\n\n"
+        f"Antworte NUR als JSON mit diesen Feldern je nach Institution:\n"
+        f"- OLD_PK: freizuegigkeit_chf (int), austrittsdatum (str), status (str)\n"
+        f"- NEW_PK: eintrittsdatum (str), bvg_koordinationsabzug (int), bvg_pflicht (bool)\n"
+        f"- AVS: ik_auszug (str), beitragsjahre (int), luecken (int)\n\n"
+        f"Verwende realistische Schweizer Werte. Nur JSON, kein Text davor/danach."
     )
 
     try:
         msg = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=256,
-            messages=[{"role": "user", "content": prompt}],
+            system=system_prompt,
+            messages=[{"role": "user", "content": "Bitte antworte auf die HelveVista-Anfrage."}],
         )
         raw = msg.content[0].text.strip()
         # Strip markdown code fences if present
@@ -784,6 +774,108 @@ def _simulate_response(actor: Actor, context: dict) -> dict:
     if _use_llm():
         return _simulate_llm(actor, context)
     return DEMO_RESPONSES[actor]
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DOCUMENT EXTRACTION (Feature 2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _extract_doc_info(uploaded_files: list) -> dict:
+    """
+    Extract pension/contact information from uploaded documents via Claude API.
+
+    Supports PDF (text extraction via pypdf if available, else skipped) and
+    images (PNG/JPG — sent as base64 vision content).
+
+    Returns a dict of extracted fields, or {} if nothing could be extracted.
+    """
+    import base64
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+    content_parts: list[dict] = []
+
+    for f in uploaded_files:
+        file_bytes = f.read()
+        file_ext   = f.name.lower().rsplit(".", 1)[-1]
+
+        if file_ext == "pdf":
+            # Try pypdf text extraction first
+            text_extracted = ""
+            try:
+                import io
+                import pypdf  # type: ignore[import]
+                reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+                text_extracted = "\n".join(
+                    page.extract_text() or "" for page in reader.pages
+                )
+            except Exception:
+                pass
+
+            if text_extracted.strip():
+                content_parts.append({
+                    "type": "text",
+                    "text": f"Dokument '{f.name}':\n{text_extracted[:4000]}",
+                })
+            else:
+                # pypdf unavailable or empty — inform model
+                content_parts.append({
+                    "type": "text",
+                    "text": (
+                        f"[PDF '{f.name}' konnte nicht als Text extrahiert werden. "
+                        "Bitte installieren Sie pypdf für bessere PDF-Unterstützung.]"
+                    ),
+                })
+        else:
+            # Image — send as base64 vision block
+            media_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}
+            media_type = media_map.get(file_ext, "image/png")
+            b64 = base64.b64encode(file_bytes).decode()
+            content_parts.append({
+                "type": "image",
+                "source": {
+                    "type":       "base64",
+                    "media_type": media_type,
+                    "data":       b64,
+                },
+            })
+
+    if not content_parts:
+        return {}
+
+    content_parts.append({
+        "type": "text",
+        "text": "Extrahiere die Vorsorge-Informationen aus diesem Dokument.",
+    })
+
+    system_prompt = (
+        "Du bist ein Vorsorge-Datenextraktor. Extrahiere aus dem Dokument "
+        "ausschliesslich folgende Informationen falls vorhanden:\n"
+        "- Name der versicherten Person\n"
+        "- AHV-Nummer\n"
+        "- Pensionskasse Name und Adresse\n"
+        "- Freizügigkeitsguthaben CHF\n"
+        "- Austrittsdatum / Eintrittsdatum\n"
+        "- E-Mail oder Telefon der Institution\n"
+        "Antworte nur in JSON. Fehlende Felder weglassen."
+    )
+
+    try:
+        msg = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            system=system_prompt,
+            messages=[{"role": "user", "content": content_parts}],
+        )
+        raw = msg.content[0].text.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        return json.loads(raw.strip())
+    except Exception:
+        return {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -917,6 +1009,71 @@ def _vs_step_1_situation() -> None:
             "Demo-Modus — ANTHROPIC_API_KEY nicht gesetzt. "
             "Die Analyse wird mit Standardwerten simuliert."
         )
+
+    # ── Document upload (Feature 2) ────────────────────────────────────────────
+    st.markdown("#### Dokumente hochladen (optional)")
+    st.caption(
+        "Laden Sie relevante Dokumente hoch. HelveVista extrahiert automatisch "
+        "Vorsorge- und Kontaktinformationen."
+    )
+
+    uploaded_files = st.file_uploader(
+        "Dokumente hochladen",
+        accept_multiple_files=True,
+        type=["pdf", "png", "jpg", "jpeg"],
+        key="doc_upload",
+        label_visibility="collapsed",
+    )
+
+    if uploaded_files:
+        current_names = sorted(f.name for f in uploaded_files)
+        prev_names    = sorted(st.session_state.get("_doc_upload_names", []))
+
+        if current_names != prev_names:
+            # New files detected — run extraction
+            st.session_state["_doc_upload_names"] = current_names
+            if _use_llm():
+                with st.spinner("Dokument wird analysiert…"):
+                    extracted = _extract_doc_info(list(uploaded_files))
+                if extracted:
+                    st.session_state.extracted_doc_data = extracted
+                    # Pre-fill situation text area if still empty
+                    if not st.session_state.raw_input.strip():
+                        _label_map = {
+                            "name":               "Name",
+                            "ahv_nummer":         "AHV-Nummer",
+                            "pensionskasse":      "Pensionskasse",
+                            "freizuegigkeit_chf": "Freizügigkeitsguthaben (CHF)",
+                            "austrittsdatum":     "Austrittsdatum",
+                            "eintrittsdatum":     "Eintrittsdatum",
+                            "email":              "E-Mail Institution",
+                            "telefon":            "Telefon Institution",
+                        }
+                        lines = [
+                            f"{_label_map.get(k, k.replace('_', ' ').title())}: {v}"
+                            for k, v in extracted.items()
+                        ]
+                        st.session_state.raw_input = "\n".join(lines)
+                    st.rerun()
+            else:
+                st.info("LLM-Extraktion erfordert einen ANTHROPIC_API_KEY.")
+
+    extracted_data = st.session_state.get("extracted_doc_data", {})
+    if extracted_data:
+        st.success("Informationen aus Dokument extrahiert")
+        _label_map_disp = {
+            "name":               "Name",
+            "ahv_nummer":         "AHV-Nummer",
+            "pensionskasse":      "Pensionskasse",
+            "freizuegigkeit_chf": "Freizügigkeitsguthaben (CHF)",
+            "austrittsdatum":     "Austrittsdatum",
+            "eintrittsdatum":     "Eintrittsdatum",
+            "email":              "E-Mail Institution",
+            "telefon":            "Telefon Institution",
+        }
+        for k, v in extracted_data.items():
+            label = _label_map_disp.get(k, k.replace("_", " ").title())
+            st.caption(f"**{label}:** {v}")
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
@@ -1298,11 +1455,19 @@ def _vs_step_4_koordination() -> None:
             )
 
         st.info(
-            "Manuelle Simulation aktiv — bitte wechseln Sie zum "
-            "Institutionen-Portal um die Anfragen zu beantworten."
+            "Live-Modus aktiv. Bitte öffnen Sie das Institutionen-Portal "
+            "in einem zweiten Tab und beantworten Sie die Anfragen manuell."
         )
-        time.sleep(2)
-        st.rerun()
+        # Poll case_state.json for manual responses every 2 seconds
+        all_responded = all(
+            manual_case.get("institution_responded", {}).get(a.value, False)
+            for a in activated
+        )
+        if all_responded:
+            st.rerun()
+        else:
+            time.sleep(2)
+            st.rerun()
         return
 
     # ── All actors terminal → ready to proceed ────────────────────────────────
@@ -2319,34 +2484,25 @@ def _inst_dashboard() -> None:
                     unsafe_allow_html=True,
                 )
 
-            elif responded.get(actor.value):
-                # Already responded — green success card with option to re-respond
-                resp_date      = case.get("institution_response_date", {}).get(actor.value, "")
-                resp_date_disp = resp_date[:16].replace("T", " ") if resp_date else "—"
-                st.markdown(
-                    f'<div style="background:#071A0E; border:1px solid #1A4C30; '
-                    f'border-left:3px solid #4CAF82; border-radius:4px; '
-                    f'padding:1.2rem 1.4rem; margin-bottom:0.8rem;">'
-                    f'<div style="color:#4CAF82; font-weight:600; margin-bottom:0.4rem;">'
-                    f'✓ Anfrage beantwortet</div>'
-                    f'<div style="color:#80B898; font-size:0.85rem; line-height:1.6;">'
-                    f'Ihre Antwort wurde am <strong>{resp_date_disp}</strong> übermittelt.<br>'
-                    f'HelveVista hat Ihre Angaben verarbeitet. Vielen Dank.</div>'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                # Allow re-responding for demo flexibility (e.g. when auto-sim fired first)
-                if st.button(
-                    "Anfrage trotzdem bearbeiten",
-                    key="inst_dash_reopen_btn",
-                    use_container_width=True,
-                    help="Demo: Antwort überschreiben — auch wenn Simulation bereits ausgeführt wurde",
-                ):
-                    st.session_state.inst_view = "form"
-                    st.rerun()
+            elif actor.value in activated:
+                # Show green confirmation if already responded
+                if responded.get(actor.value):
+                    resp_date      = case.get("institution_response_date", {}).get(actor.value, "")
+                    resp_date_disp = resp_date[:16].replace("T", " ") if resp_date else "—"
+                    st.markdown(
+                        f'<div style="background:#071A0E; border:1px solid #1A4C30; '
+                        f'border-left:3px solid #4CAF82; border-radius:4px; '
+                        f'padding:1.2rem 1.4rem; margin-bottom:0.8rem;">'
+                        f'<div style="color:#4CAF82; font-weight:600; margin-bottom:0.4rem;">'
+                        f'✓ Anfrage beantwortet</div>'
+                        f'<div style="color:#80B898; font-size:0.85rem; line-height:1.6;">'
+                        f'Ihre Antwort wurde am <strong>{resp_date_disp}</strong> übermittelt.<br>'
+                        f'HelveVista hat Ihre Angaben verarbeitet. Vielen Dank.</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
 
-            else:
-                # Open request card
+                # Always show the pending request card so institution can respond
                 with st.container(border=True):
                     # Header row
                     col_ch, col_cb = st.columns([3, 1])
