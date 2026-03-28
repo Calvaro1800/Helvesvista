@@ -39,6 +39,11 @@ import streamlit as st
 
 from core.orchestrator import HelveVistaOrchestrator
 from core.states import Actor, ActorState, OrchestratorState
+from llm.email_agent import (
+    get_email_status,
+    poll_inbox,
+    send_institution_email,
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1205,6 +1210,31 @@ def _vs_step_3_akteure() -> None:
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
+    # ── Email addresses for live mode ──────────────────────────────────────────
+    st.markdown(
+        '<div class="hv-label" style="margin-top:0.6rem; margin-bottom:0.3rem;">'
+        'E-Mail-Adressen (Live-Modus)</div>',
+        unsafe_allow_html=True,
+    )
+    st.caption(
+        "Nur relevant wenn Simulationsmodus deaktiviert ist. "
+        "HelveVista sendet dann echte Anfragen per E-Mail an die Institutionen."
+    )
+    for actor in Actor:
+        if selected.get(actor):
+            email = st.text_input(
+                f"E-Mail-Adresse der {ACTOR_LABELS[actor]}",
+                key=f"inst_email_{actor.value}",
+                placeholder="info@pensionskasse.ch",
+            )
+            # Save to case directly without touching session_state widget key
+            if email:
+                case = _load_case()
+                case.setdefault("institution_emails", {})[actor.value] = email
+                _save_case(case)
+
+    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
+
     col_back, col_next = st.columns(2)
     with col_back:
         if st.button("Zurück", use_container_width=True):
@@ -1216,6 +1246,9 @@ def _vs_step_3_akteure() -> None:
             st.session_state.activated_actors = chosen
             case = st.session_state.case
             case["activated_actors"] = [a.value for a in chosen]
+            # Read institution emails from case_state.json (already saved by widget handler)
+            saved_case = _load_case()
+            case["institution_emails"] = saved_case.get("institution_emails", {})
             _save_case(case)
             _vs_go(4)
             st.rerun()
@@ -1454,11 +1487,86 @@ def _vs_step_4_koordination() -> None:
                 unsafe_allow_html=True,
             )
 
-        st.info(
-            "Live-Modus aktiv. Bitte öffnen Sie das Institutionen-Portal "
-            "in einem zweiten Tab und beantworten Sie die Anfragen manuell."
-        )
-        # Poll case_state.json for manual responses every 2 seconds
+        # ── Email bridge UI ────────────────────────────────────────────────────
+        inst_emails   = manual_case.get("institution_emails", {})
+        email_status  = get_email_status(manual_case)
+        case_id       = manual_case.get("case_id", "")
+
+        creds_missing = not (
+            __import__("pathlib").Path(__file__).parent.parent.parent
+            / "credentials.json"
+        ).exists()
+
+        if creds_missing:
+            st.warning(
+                "Gmail-Konfiguration fehlt. "
+                "Bitte credentials.json im Projektverzeichnis ablegen."
+            )
+        else:
+            for actor in sorted(activated, key=lambda a: a.value):
+                actor_label = ACTOR_LABELS[actor]
+                inst_email  = inst_emails.get(actor.value, "")
+                status      = email_status.get(actor.value, "pending")
+
+                with st.container(border=True):
+                    st.markdown(
+                        f'<span style="font-weight:500;">{actor_label}</span>',
+                        unsafe_allow_html=True,
+                    )
+
+                    if status == "pending":
+                        if inst_email:
+                            if st.button(
+                                f"Email senden an {actor_label}",
+                                key=f"send_email_{actor.value}",
+                                use_container_width=True,
+                            ):
+                                with st.spinner("Email wird gesendet..."):
+                                    fresh_case = _load_case()
+                                    result = send_institution_email(
+                                        actor, fresh_case, inst_email
+                                    )
+                                if result["success"]:
+                                    st.success(f"Email gesendet an {inst_email}")
+                                    st.rerun()
+                                else:
+                                    st.error(
+                                        f"Fehler beim Senden: {result['error']}"
+                                    )
+                        else:
+                            st.caption(
+                                f"Keine E-Mail-Adresse hinterlegt. "
+                                f"Bitte in Schritt 3 eintragen."
+                            )
+
+                    elif status == "sent":
+                        sent_rec  = manual_case.get("email_sent", {}).get(actor.value, {})
+                        sent_at   = sent_rec.get("sent_at", "")
+                        st.info(f"Email gesendet — warten auf Antwort (gesendet: {sent_at})")
+                        if st.button(
+                            "Inbox prüfen",
+                            key=f"poll_inbox_{actor.value}",
+                            use_container_width=True,
+                        ):
+                            with st.spinner("Posteingang wird geprüft..."):
+                                new_responses = poll_inbox(case_id)
+                            matched = [
+                                r for r in new_responses
+                                if r["actor"] == actor.value
+                            ]
+                            if matched:
+                                st.success("Antwort erhalten und verarbeitet.")
+                                st.rerun()
+                            else:
+                                st.caption(
+                                    f"Keine neue Antwort gefunden. "
+                                    f"(Zuletzt geprüft: {time.strftime('%H:%M:%S')})"
+                                )
+
+                    elif status in ("replied", "parsed"):
+                        st.success("Antwort erhalten und verarbeitet.")
+
+        # Advance automatically once all activated actors have responded
         all_responded = all(
             manual_case.get("institution_responded", {}).get(a.value, False)
             for a in activated

@@ -245,7 +245,6 @@ class HelveVistaOrchestrator:
             )
 
     def status(self) -> str:
-        """Affichage lisible de l'état complet du cas."""
         lines = [
             f"{'='*60}",
             f"HelveVista Case — {self.case_id}",

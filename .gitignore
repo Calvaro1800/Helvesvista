@@ -21,6 +21,10 @@ ENV/
 .env.local
 *.env
 
+# Gmail OAuth2 credentials — NEVER commit
+credentials.json
+token.json
+
 # IDE
 .vscode/
 .idea/

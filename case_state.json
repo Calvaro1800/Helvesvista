@@ -1,8 +1,8 @@
 {
-  "case_id": "F092909F",
-  "user_name": "VSP",
-  "user_email": "christopher.alvaro.o@gmail.com",
-  "situation": "ich wechsle meinen job per 5. april. was brauche ich in bezug auf meine BVG?",
+  "case_id": "D4027923",
+  "user_name": "Christopher Alvaro",
+  "user_email": "christopheralvaro.o@gmail.com",
+  "situation": "ich wechsle meinen job per 1. april von Migors Ag zur coop ag. was brauche ich genau als DDokumente und Informationen für meine BVG?",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,7 +10,7 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "ich wechsle meinen job per 5. april. was brauche ich in bezug auf meine BVG?",
+    "user_summary": "ich wechsle meinen job per 1. april von Migors Ag zur coop ag. was brauche ich genau als DDokumente und Informationen für meine BVG?",
     "missing_info": []
   },
   "activated_actors": [
@@ -19,13 +19,13 @@
   ],
   "requests": {
     "NEW_PK": {
-      "sent_at": 1774200870.167423,
+      "sent_at": 1774713497.352417,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
     "OLD_PK": {
-      "sent_at": 1774200870.167423,
+      "sent_at": 1774713497.352417,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -52,15 +52,19 @@
     "NEW_PK": "COMPLETED",
     "AVS": "SKIPPED"
   },
-  "orchestrator_state": "USER_VALIDATION",
-  "final_decision": null,
-  "created_at": "2026-03-22T17:38:39",
+  "orchestrator_state": "CLOSED_SUCCESS",
+  "final_decision": "accept",
+  "created_at": "2026-03-28T16:50:07",
   "follow_up_requests": {},
   "follow_up_questions": {},
   "institution_clarification_requests": {},
   "user_clarification_responses": {},
+  "institution_emails": {
+    "OLD_PK": "christopheralvaro.o@gmail.com",
+    "NEW_PK": "christopheralvaro.o@gmail.com"
+  },
   "institution_response_date": {
-    "OLD_PK": "2026-03-22T18:16:40",
-    "NEW_PK": "2026-03-22T18:16:40"
+    "OLD_PK": "2026-03-28T16:58:26",
+    "NEW_PK": "2026-03-28T16:58:26"
   }
 }
