@@ -1488,9 +1488,8 @@ def _vs_step_4_koordination() -> None:
             )
 
         # ── Email bridge UI ────────────────────────────────────────────────────
-        inst_emails   = manual_case.get("institution_emails", {})
-        email_status  = get_email_status(manual_case)
-        case_id       = manual_case.get("case_id", "")
+        inst_emails = manual_case.get("institution_emails", {})
+        case_id     = manual_case.get("case_id", "")
 
         creds_missing = not (
             __import__("pathlib").Path(__file__).parent.parent.parent
@@ -1506,7 +1505,7 @@ def _vs_step_4_koordination() -> None:
             for actor in sorted(activated, key=lambda a: a.value):
                 actor_label = ACTOR_LABELS[actor]
                 inst_email  = inst_emails.get(actor.value, "")
-                status      = email_status.get(actor.value, "pending")
+                status      = get_email_status(manual_case, actor.value)
 
                 with st.container(border=True):
                     st.markdown(
@@ -1514,61 +1513,95 @@ def _vs_step_4_koordination() -> None:
                         unsafe_allow_html=True,
                     )
 
-                    if status == "pending":
-                        if inst_email:
-                            if st.button(
-                                f"Email senden an {actor_label}",
-                                key=f"send_email_{actor.value}",
-                                use_container_width=True,
-                            ):
-                                with st.spinner("Email wird gesendet..."):
-                                    fresh_case = _load_case()
-                                    result = send_institution_email(
-                                        actor, fresh_case, inst_email
-                                    )
-                                if result["success"]:
-                                    st.success(f"Email gesendet an {inst_email}")
-                                    st.rerun()
-                                else:
-                                    st.error(
-                                        f"Fehler beim Senden: {result['error']}"
-                                    )
-                        else:
-                            st.caption(
-                                f"Keine E-Mail-Adresse hinterlegt. "
-                                f"Bitte in Schritt 3 eintragen."
-                            )
+                    if status == "not_sent":
+                        email_input = st.text_input(
+                            "E-Mail-Adresse der Institution",
+                            value=inst_email,
+                            key=f"email_input_{actor.value}",
+                            placeholder="info@pensionskasse.ch",
+                        )
+                        if st.button(
+                            f"E-Mail senden an {actor_label}",
+                            key=f"send_email_{actor.value}",
+                            use_container_width=True,
+                            disabled=not email_input,
+                        ):
+                            with st.spinner("E-Mail wird gesendet..."):
+                                fresh_case = _load_case()
+                                ok = send_institution_email(
+                                    actor, fresh_case, email_input
+                                )
+                            if ok:
+                                st.success(f"E-Mail gesendet an {email_input}")
+                                st.rerun()
+                            else:
+                                st.error(
+                                    "Fehler beim Senden. Bitte prüfen Sie "
+                                    "die Gmail-Konfiguration."
+                                )
+
+                    elif status == "error":
+                        st.error("Senden fehlgeschlagen. Bitte erneut versuchen.")
+                        email_input = st.text_input(
+                            "E-Mail-Adresse der Institution",
+                            value=inst_email,
+                            key=f"email_retry_{actor.value}",
+                        )
+                        if st.button(
+                            f"Erneut senden an {actor_label}",
+                            key=f"resend_{actor.value}",
+                            use_container_width=True,
+                            disabled=not email_input,
+                        ):
+                            with st.spinner("E-Mail wird gesendet..."):
+                                fresh_case = _load_case()
+                                ok = send_institution_email(
+                                    actor, fresh_case, email_input
+                                )
+                            if ok:
+                                st.success(f"E-Mail gesendet an {email_input}")
+                                st.rerun()
+                            else:
+                                st.error(
+                                    "Fehler beim Senden. Bitte prüfen Sie "
+                                    "die Gmail-Konfiguration."
+                                )
 
                     elif status == "sent":
-                        sent_rec  = manual_case.get("email_sent", {}).get(actor.value, {})
-                        sent_at   = sent_rec.get("sent_at", "")
-                        st.info(f"Email gesendet — warten auf Antwort (gesendet: {sent_at})")
+                        sent_rec = manual_case.get("email_sent", {}).get(actor.value, {})
+                        sent_at  = sent_rec.get("sent_at", "")
+                        sent_to  = sent_rec.get("to", "")
+                        st.info(
+                            f"E-Mail gesendet am {sent_at} an {sent_to}\n\n"
+                            "Warten auf Antwort..."
+                        )
                         if st.button(
-                            "Inbox prüfen",
+                            "Posteingang prüfen",
                             key=f"poll_inbox_{actor.value}",
                             use_container_width=True,
                         ):
                             with st.spinner("Posteingang wird geprüft..."):
-                                new_responses = poll_inbox(case_id)
-                            matched = [
-                                r for r in new_responses
-                                if r["actor"] == actor.value
-                            ]
-                            if matched:
+                                reply = poll_inbox(case_id, actor.value)
+                            if reply is not None:
                                 st.success("Antwort erhalten und verarbeitet.")
                                 st.rerun()
                             else:
-                                st.caption(
-                                    f"Keine neue Antwort gefunden. "
+                                st.info(
+                                    "Noch keine Antwort. Bitte später prüfen. "
                                     f"(Zuletzt geprüft: {time.strftime('%H:%M:%S')})"
                                 )
 
-                    elif status in ("replied", "parsed"):
-                        st.success("Antwort erhalten und verarbeitet.")
+                    elif status == "replied":
+                        parsed = manual_case.get(
+                            "institution_responses", {}
+                        ).get(actor.value, {})
+                        st.success(f"Antwort erhalten von {actor_label}")
+                        for k, v in parsed.items():
+                            st.caption(f"{k}: {v}")
 
-        # Advance automatically once all activated actors have responded
+        # Advance automatically once all activated actors have replied via email
         all_responded = all(
-            manual_case.get("institution_responded", {}).get(a.value, False)
+            get_email_status(manual_case, a.value) == "replied"
             for a in activated
         )
         if all_responded:
