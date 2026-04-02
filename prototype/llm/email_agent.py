@@ -93,12 +93,41 @@ DEMO_RESPONSES: dict[str, dict] = {
 
 # ── Email body templates ───────────────────────────────────────────────────────
 
+_PROFILE_CARD = """\
+─────────────────────────────────────────
+ANGABEN ZUR VERSICHERTEN PERSON
+Name:       {user_name}
+E-Mail:     {user_email}
+Fall-ID:    {case_id}
+Verfahren:  {verfahren}
+─────────────────────────────────────────
+
+MITTEILUNG DES VERSICHERTEN:
+"{user_situation}"
+
+"""
+
+_REPLY_OPTIONS = """
+────────────────────────────────────────────────────
+ANTWORTMÖGLICHKEITEN:
+
+Option A — Per E-Mail:
+Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.
+Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische Zuordnung.
+
+Option B — Via HelveVista Plattform:
+Melden Sie sich unter http://localhost:8501 an und verwenden Sie
+die Fall-ID {case_id} um diesen Fall direkt in der Plattform zu bearbeiten.
+────────────────────────────────────────────────────
+"""
+
 _EMAIL_BODIES: dict[str, str] = {
     Actor.OLD_PK.value: """\
 Sehr geehrte Damen und Herren
 
 Im Auftrag von {user_name} wenden wir uns mit folgendem Anliegen an Sie.
 
+""" + _PROFILE_CARD + """\
 {user_name} tritt in Kürze aus Ihrem Versichertenbestand aus und wechselt zu \
 einem neuen Arbeitgeber. Im Rahmen dieses Stellenwechsels ist die Abwicklung \
 der Freizügigkeitsleistung gemäss Freizügigkeitsgesetz (FZG) erforderlich.
@@ -107,11 +136,7 @@ Wir bitten Sie um folgende Informationen:
   • Höhe des Freizügigkeitsguthabens zum Austrittsdatum
   • Austrittsdatum
   • Bestätigung der Überweisungsadresse für die neue Pensionskasse
-
-Bitte antworten Sie direkt auf diese E-Mail unter Angabe der untenstehenden \
-HelveVista-Referenz. Die Frist für Ihre Rückmeldung beträgt 14 Werktage ab \
-Eingang dieser Anfrage.
-
+""" + _REPLY_OPTIONS + """
 Mit freundlichen Grüssen
 HelveVista Koordinationsstelle
 """,
@@ -120,6 +145,7 @@ Sehr geehrte Damen und Herren
 
 Im Auftrag von {user_name} wenden wir uns mit folgendem Anliegen an Sie.
 
+""" + _PROFILE_CARD + """\
 {user_name} wird in Kürze in Ihrem Unternehmen eintreten. Im Rahmen dieses \
 Stellenwechsels sind die Anmeldung zur BVG-Pflicht sowie die Übernahme des \
 Freizügigkeitsguthabens von der bisherigen Pensionskasse zu regeln.
@@ -128,11 +154,7 @@ Wir bitten Sie um folgende Informationen:
   • Eintrittsdatum
   • Geltender BVG-Koordinationsabzug
   • Bestätigung der BVG-Pflicht
-
-Bitte antworten Sie direkt auf diese E-Mail unter Angabe der untenstehenden \
-HelveVista-Referenz. Die Frist für Ihre Rückmeldung beträgt 14 Werktage ab \
-Eingang dieser Anfrage.
-
+""" + _REPLY_OPTIONS + """
 Mit freundlichen Grüssen
 HelveVista Koordinationsstelle
 """,
@@ -141,17 +163,14 @@ Sehr geehrte Damen und Herren
 
 Im Auftrag von {user_name} wenden wir uns mit folgendem Anliegen an Sie.
 
+""" + _PROFILE_CARD + """\
 {user_name} hat einen Stellenwechsel vollzogen und benötigt zur Überprüfung \
 der Vorsorgesituation einen aktuellen IK-Auszug (Individuelle Kontenauszug).
 
 Wir bitten Sie um folgende Informationen:
   • Aktueller IK-Auszug mit AHV-Beitragsjahren
   • Nachweis allfälliger Beitragslücken
-
-Bitte antworten Sie direkt auf diese E-Mail unter Angabe der untenstehenden \
-HelveVista-Referenz. Die Frist für Ihre Rückmeldung beträgt 14 Werktage ab \
-Eingang dieser Anfrage.
-
+""" + _REPLY_OPTIONS + """
 Mit freundlichen Grüssen
 HelveVista Koordinationsstelle
 """,
@@ -262,31 +281,51 @@ def send_institution_email(
     Returns:
         True on success, False on failure.
     """
+    print(f"[email_agent] Sending to {institution_email}...")
+    print(f"[email_agent] credentials.json: {CREDENTIALS_PATH.exists()}")
+    print(f"[email_agent] token.json: {TOKEN_PATH.exists()}")
+
     try:
         service = get_gmail_service()
     except (FileNotFoundError, ImportError, RuntimeError) as exc:
+        import traceback
+        traceback.print_exc()
+        print(f"[email_agent] SEND FAILED (service): {exc}")
         _record_email_error(case, actor.value, str(exc))
         return False
 
-    case_id   = case.get("case_id", "UNKNOWN")
-    user_name = case.get("user_name", "Versicherter")
-    label     = ACTOR_LABELS.get(actor.value, actor.value)
-    subject   = (
+    print(f"[email_agent] Gmail service obtained: OK")
+
+    case_id        = case.get("case_id", "UNKNOWN")
+    user_name      = case.get("user_name", "Versicherter")
+    user_email     = case.get("user_email", case.get("email", ""))
+    user_situation = case.get("situation", case.get("user_message", ""))
+    verfahren      = case.get("verfahren", "Stellenwechsel")
+    label          = ACTOR_LABELS.get(actor.value, actor.value)
+    subject        = (
         f"HelveVista \u2014 Anfrage {label} \u2014 Fall {case_id[:8]}"
     )
 
     body = (
-        _EMAIL_BODIES[actor.value].format(user_name=user_name)
+        _EMAIL_BODIES[actor.value].format(
+            user_name=user_name,
+            user_email=user_email,
+            user_situation=user_situation,
+            case_id=case_id,
+            verfahren=verfahren,
+        )
         + _EMAIL_FOOTER.format(case_id=case_id, actor_value=actor.value)
     )
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
     msg["From"]    = f"{SENDER_DISPLAY} <{SENDER_ADDRESS}>"
     msg["To"]      = institution_email
+    msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
-    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+    print(f"[email_agent] Message built, sending...")
 
     try:
         sent = service.users().messages().send(
@@ -294,10 +333,14 @@ def send_institution_email(
             body={"raw": raw},
         ).execute()
     except Exception as exc:  # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        print(f"[email_agent] SEND FAILED: {exc}")
         _record_email_error(case, actor.value, str(exc))
         return False
 
     message_id = sent.get("id", "")
+    print(f"[email_agent] Sent! message_id={message_id}")
     now_str    = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
     case.setdefault("email_sent", {})[actor.value] = {

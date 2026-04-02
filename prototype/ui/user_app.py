@@ -1220,10 +1220,21 @@ def _vs_step_3_akteure() -> None:
         "Nur relevant wenn Simulationsmodus deaktiviert ist. "
         "HelveVista sendet dann echte Anfragen per E-Mail an die Institutionen."
     )
+    DEFAULT_INSTITUTION_EMAILS = {
+        "OLD_PK": "info.helvevista@gmail.com",
+        "NEW_PK": "info.helvevista@gmail.com",
+        "AVS":    "info.helvevista@gmail.com",
+    }
+    saved_emails = _load_case().get("institution_emails", {})
     for actor in Actor:
         if selected.get(actor):
+            default_email = saved_emails.get(
+                actor.value,
+                DEFAULT_INSTITUTION_EMAILS.get(actor.value, ""),
+            )
             email = st.text_input(
                 f"E-Mail-Adresse der {ACTOR_LABELS[actor]}",
+                value=default_email,
                 key=f"inst_email_{actor.value}",
                 placeholder="info@pensionskasse.ch",
             )
@@ -1531,6 +1542,8 @@ def _vs_step_4_koordination() -> None:
                                 ok = send_institution_email(
                                     actor, fresh_case, email_input
                                 )
+                            st.write(f"DEBUG: send result = {ok}")
+                            st.write(f"DEBUG: case email_sent = {_load_case().get('email_sent', {})}")
                             if ok:
                                 st.success(f"E-Mail gesendet an {email_input}")
                                 st.rerun()
