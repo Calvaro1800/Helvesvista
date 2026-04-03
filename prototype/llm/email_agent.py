@@ -511,7 +511,7 @@ def parse_institution_reply(
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        return DEMO_RESPONSES.get(actor_value, {})
+        return {"raw_reply": email_body}
 
     client = anthropic.Anthropic(api_key=api_key)
     system = _PARSE_SYSTEM.format(actor_value=actor_value)
@@ -526,7 +526,7 @@ def parse_institution_reply(
         raw = message.content[0].text.strip()
         return json.loads(raw)
     except Exception:  # noqa: BLE001
-        return DEMO_RESPONSES.get(actor_value, {})
+        return {"raw_reply": email_body}
 
 
 def poll_followup_inbox(
@@ -561,7 +561,7 @@ def poll_followup_inbox(
         return None
 
     case_id = case.get("case_id", "UNKNOWN")
-    query   = f"in:inbox {case_id} {actor_value} {followup_type}"
+    query   = f"in:inbox {case_id} {actor_value}"
     results = service.users().messages().list(userId="me", q=query).execute()
     messages = results.get("messages", [])
 
