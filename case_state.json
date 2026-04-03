@@ -1,8 +1,8 @@
 {
-  "case_id": "F25722E0",
-  "user_name": "Thomais meier",
+  "case_id": "2DC59064",
+  "user_name": "Christopher Alvaro",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG zur Coop AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle nötigen Schritte eingeleitet werden.\nVorsorgeausweis fictif\n\nArbeitgeber : Migros AG\nPensionskasse : Migros-Pensionskasse\nFreizügigkeitsguthaben : CHF 48'350\nEintrittsdatum : 01.03.2020\nAustrittsdatum : 30.04.2026",
+  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur UBS AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird.",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,22 +10,22 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG zur Coop AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle nötigen Schritte eingeleitet werden.\nVorsorgeausweis fictif\n\nArbeitgeber : Migros AG\nPensionskasse : Migros-Pensionskasse\nFreizügigkeitsguthaben : CHF 48'350\nEintrittsdatum : 01.03.2020\nAustrittsdatum : 30.04.2026",
+    "user_summary": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur UBS AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird.",
     "missing_info": []
   },
   "activated_actors": [
-    "NEW_PK",
-    "OLD_PK"
+    "OLD_PK",
+    "NEW_PK"
   ],
   "requests": {
-    "NEW_PK": {
-      "sent_at": 1775202767.8269172,
+    "OLD_PK": {
+      "sent_at": 1775203389.1357849,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
-    "OLD_PK": {
-      "sent_at": 1775202767.8269172,
+    "NEW_PK": {
+      "sent_at": 1775203389.1357849,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -54,28 +54,18 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-03T09:52:11",
+  "created_at": "2026-04-03T10:01:02",
   "follow_up_requests": {
     "OLD_PK": {
-      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Freizügigkeitsabrechnung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nThomais meier",
-      "sent_at": "2026-04-03T09:55:45"
-    },
-    "NEW_PK": {
-      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Eingangsbestätigung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nThomais meier",
-      "sent_at": "2026-04-03T09:55:48"
+      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Freizügigkeitsabrechnung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nChristopher Alvaro",
+      "sent_at": "2026-04-03T10:04:59"
     }
   },
   "follow_up_questions": {
     "OLD_PK": [
       {
-        "question": "saluz",
-        "sent_at": "2026-04-03T09:56:20"
-      }
-    ],
-    "NEW_PK": [
-      {
-        "question": "salut",
-        "sent_at": "2026-04-03T09:56:25"
+        "question": "Wird das Guthaben automatisch überwiesen oder muss der Versicherte aktiv werden?",
+        "sent_at": "2026-04-03T10:05:14"
       }
     ]
   },
@@ -88,32 +78,32 @@
   "email_sent": {
     "NEW_PK": {
       "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T07:52:51",
-      "message_id": "19d5254aa08ce26f",
-      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall F25722E0",
+      "sent_at": "2026-04-03T08:03:16",
+      "message_id": "19d525e35b60f500",
+      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall 2DC59064",
       "error": false
     },
     "OLD_PK": {
       "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T07:52:53",
-      "message_id": "19d5254b04929350",
-      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall F25722E0",
+      "sent_at": "2026-04-03T08:03:18",
+      "message_id": "19d525e3aa7f2143",
+      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall 2DC59064",
       "error": false
     }
   },
   "institution_response_date": {
-    "NEW_PK": "2026-04-03T07:55:07",
-    "OLD_PK": "2026-04-03T07:55:09"
+    "NEW_PK": "2026-04-03T08:04:41",
+    "OLD_PK": "2026-04-03T08:04:47"
   },
   "email_replies": {
     "NEW_PK": {
-      "received_at": "2026-04-03T07:55:07",
-      "gmail_message_id": "19d52564e1336b00",
+      "received_at": "2026-04-03T08:04:41",
+      "gmail_message_id": "19d525eaca670a55",
       "parsed": true
     },
     "OLD_PK": {
-      "received_at": "2026-04-03T07:55:09",
-      "gmail_message_id": "19d5255f5237edad",
+      "received_at": "2026-04-03T08:04:47",
+      "gmail_message_id": "19d525ee95254f04",
       "parsed": true
     }
   }

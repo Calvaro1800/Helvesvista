@@ -41,6 +41,8 @@ from core.orchestrator import HelveVistaOrchestrator
 from core.states import Actor, ActorState, OrchestratorState
 from llm.email_agent import (
     get_email_status,
+    get_followup_status,
+    poll_followup_inbox,
     poll_inbox,
     send_followup_email,
     send_institution_email,
@@ -1794,100 +1796,155 @@ def _vs_step_5_ergebnis() -> None:
             )
             st.info(explanation)
 
-            req_already_sent  = actor.value in follow_up_reqs
-            ques_already_sent = bool(follow_up_ques.get(actor.value))
-
             col_a, col_b = st.columns(2)
 
             with col_a:
-                if req_already_sent:
-                    st.markdown(
-                        _badge("✓ Bereits gesendet", "completed"),
-                        unsafe_allow_html=True,
+                doc_status = get_followup_status(fresh_case, actor.value, "dokument")
+                if doc_status == "replied":
+                    reply_info = (
+                        fresh_case.get("follow_up_replies", {})
+                                  .get(actor.value, {})
+                                  .get("dokument", {})
                     )
-                with st.expander("Dokument anfordern"):
-                    pre_text = (
-                        f"Sehr geehrte Damen und Herren,\n\n"
-                        f"ich bitte um Zustellung folgender Unterlagen: {doc_name}. "
-                        f"Bitte senden Sie diese an meine Adresse.\n\n"
-                        f"Mit freundlichen Grüssen,\n{user_name_display}"
+                    st.success(f"Antwort erhalten von {name}")
+                    st.text_area(
+                        "Antworttext",
+                        value=reply_info.get("reply_text", ""),
+                        height=120,
+                        disabled=True,
+                        key=f"doc_reply_{actor.value}",
                     )
-                    edited_text = st.text_area(
-                        "Anfragetext",
-                        value=pre_text,
-                        height=160,
-                        key=f"doc_text_{actor.value}",
-                        label_visibility="collapsed",
+                elif doc_status == "sent":
+                    sent_at = (
+                        fresh_case.get("follow_up_requests", {})
+                                  .get(actor.value, {})
+                                  .get("sent_at", "")
                     )
+                    st.info(f"E-Mail gesendet am {sent_at} — Warten auf Antwort...")
                     if st.button(
-                        "Anfrage senden",
-                        key=f"doc_send_{actor.value}",
-                        type="primary",
+                        "Posteingang prüfen",
+                        key=f"doc_poll_{actor.value}",
                         use_container_width=True,
-                        disabled=req_already_sent,
                     ):
                         c = _load_case()
-                        inst_email_addr = c.get("institution_emails", {}).get(actor.value, "")
-                        case_id = c.get("case_id", "UNKNOWN")
-                        email_subject = (
-                            f"HelveVista \u2014 Dokumentenanfrage {name} \u2014 Fall {case_id[:8]}"
-                        )
-                        with st.spinner("E-Mail wird gesendet..."):
-                            ok = send_followup_email(inst_email_addr, email_subject, edited_text) if inst_email_addr else False
-                        if ok:
-                            c.setdefault("follow_up_requests", {})[actor.value] = {
-                                "text":    edited_text,
-                                "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                            }
-                            _save_case(c)
-                            st.success("Anfrage gesendet.")
+                        with st.spinner("Posteingang wird geprüft..."):
+                            reply = poll_followup_inbox(c, actor.value, "dokument")
+                        if reply is not None:
+                            st.success("Antwort erhalten.")
                         else:
-                            st.error("Fehler beim Senden. Bitte prüfen Sie die Gmail-Konfiguration oder ob eine Institutions-E-Mail hinterlegt ist.")
+                            st.info("Noch keine Antwort. Bitte später prüfen.")
                         st.rerun()
-
-            with col_b:
-                if ques_already_sent:
-                    st.markdown(
-                        _badge("✓ Bereits gesendet", "completed"),
-                        unsafe_allow_html=True,
-                    )
-                with st.expander(f"Rückfrage stellen"):
-                    question = st.text_area(
-                        f"Ihre Frage an {name}",
-                        placeholder=f"Schreiben Sie Ihre Frage an die {name}…",
-                        height=120,
-                        key=f"ques_text_{actor.value}",
-                        label_visibility="visible",
-                    )
-                    if st.button(
-                        "Frage senden",
-                        key=f"ques_send_{actor.value}",
-                        type="primary",
-                        use_container_width=True,
-                    ):
-                        if question.strip():
+                else:  # not_sent
+                    with st.expander("Dokument anfordern"):
+                        pre_text = (
+                            f"Sehr geehrte Damen und Herren,\n\n"
+                            f"ich bitte um Zustellung folgender Unterlagen: {doc_name}. "
+                            f"Bitte senden Sie diese an meine Adresse.\n\n"
+                            f"Mit freundlichen Grüssen,\n{user_name_display}"
+                        )
+                        edited_text = st.text_area(
+                            "Anfragetext",
+                            value=pre_text,
+                            height=160,
+                            key=f"doc_text_{actor.value}",
+                            label_visibility="collapsed",
+                        )
+                        if st.button(
+                            "Anfrage senden",
+                            key=f"doc_send_{actor.value}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
                             c = _load_case()
                             inst_email_addr = c.get("institution_emails", {}).get(actor.value, "")
                             case_id = c.get("case_id", "UNKNOWN")
                             email_subject = (
-                                f"HelveVista \u2014 Rückfrage {name} \u2014 Fall {case_id[:8]}"
+                                f"HelveVista \u2014 Dokumentenanfrage {name} \u2014 Fall {case_id[:8]}"
                             )
                             with st.spinner("E-Mail wird gesendet..."):
-                                ok = send_followup_email(inst_email_addr, email_subject, question.strip()) if inst_email_addr else False
+                                ok = send_followup_email(inst_email_addr, email_subject, edited_text) if inst_email_addr else False
                             if ok:
-                                c.setdefault("follow_up_questions", {}).setdefault(
-                                    actor.value, []
-                                ).append({
-                                    "question": question.strip(),
-                                    "sent_at":  time.strftime("%Y-%m-%dT%H:%M:%S"),
-                                })
+                                c.setdefault("follow_up_requests", {})[actor.value] = {
+                                    "text":    edited_text,
+                                    "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                }
                                 _save_case(c)
-                                st.success("Rückfrage gesendet.")
+                                st.success("Anfrage gesendet.")
                             else:
                                 st.error("Fehler beim Senden. Bitte prüfen Sie die Gmail-Konfiguration oder ob eine Institutions-E-Mail hinterlegt ist.")
                             st.rerun()
+
+            with col_b:
+                ques_status = get_followup_status(fresh_case, actor.value, "rueckfrage")
+                if ques_status == "replied":
+                    reply_info = (
+                        fresh_case.get("follow_up_replies", {})
+                                  .get(actor.value, {})
+                                  .get("rueckfrage", {})
+                    )
+                    st.success(f"Antwort erhalten von {name}")
+                    st.text_area(
+                        "Antworttext",
+                        value=reply_info.get("reply_text", ""),
+                        height=120,
+                        disabled=True,
+                        key=f"ques_reply_{actor.value}",
+                    )
+                elif ques_status == "sent":
+                    questions = fresh_case.get("follow_up_questions", {}).get(actor.value, [])
+                    sent_at   = questions[-1]["sent_at"] if questions else ""
+                    st.info(f"E-Mail gesendet am {sent_at} — Warten auf Antwort...")
+                    if st.button(
+                        "Posteingang prüfen",
+                        key=f"ques_poll_{actor.value}",
+                        use_container_width=True,
+                    ):
+                        c = _load_case()
+                        with st.spinner("Posteingang wird geprüft..."):
+                            reply = poll_followup_inbox(c, actor.value, "rueckfrage")
+                        if reply is not None:
+                            st.success("Antwort erhalten.")
                         else:
-                            st.warning("Bitte geben Sie Ihre Frage ein.")
+                            st.info("Noch keine Antwort. Bitte später prüfen.")
+                        st.rerun()
+                else:  # not_sent
+                    with st.expander("Rückfrage stellen"):
+                        question = st.text_area(
+                            f"Ihre Frage an {name}",
+                            placeholder=f"Schreiben Sie Ihre Frage an die {name}…",
+                            height=120,
+                            key=f"ques_text_{actor.value}",
+                            label_visibility="visible",
+                        )
+                        if st.button(
+                            "Frage senden",
+                            key=f"ques_send_{actor.value}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            if question.strip():
+                                c = _load_case()
+                                inst_email_addr = c.get("institution_emails", {}).get(actor.value, "")
+                                case_id = c.get("case_id", "UNKNOWN")
+                                email_subject = (
+                                    f"HelveVista \u2014 Rückfrage {name} \u2014 Fall {case_id[:8]}"
+                                )
+                                with st.spinner("E-Mail wird gesendet..."):
+                                    ok = send_followup_email(inst_email_addr, email_subject, question.strip()) if inst_email_addr else False
+                                if ok:
+                                    c.setdefault("follow_up_questions", {}).setdefault(
+                                        actor.value, []
+                                    ).append({
+                                        "question": question.strip(),
+                                        "sent_at":  time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                    })
+                                    _save_case(c)
+                                    st.success("Rückfrage gesendet.")
+                                else:
+                                    st.error("Fehler beim Senden. Bitte prüfen Sie die Gmail-Konfiguration oder ob eine Institutions-E-Mail hinterlegt ist.")
+                                st.rerun()
+                            else:
+                                st.warning("Bitte geben Sie Ihre Frage ein.")
 
     # ── Phase 2: full conversation timeline ───────────────────────────────────
     fresh_case_for_timeline = _load_case()

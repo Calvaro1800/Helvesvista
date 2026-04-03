@@ -529,6 +529,122 @@ def parse_institution_reply(
         return DEMO_RESPONSES.get(actor_value, {})
 
 
+def poll_followup_inbox(
+    case: dict,
+    actor_value: str,
+    followup_type: str,
+) -> Optional[str]:
+    """
+    Polls Gmail inbox for a reply to a follow-up email (dokument or rueckfrage).
+
+    Search query: ``in:inbox {case_id} {actor_value} {followup_type}``
+
+    Only processes emails whose internalDate is strictly after the sent_at
+    timestamp so pre-existing messages are never matched.
+
+    Stores result in case under follow_up_replies[actor_value][followup_type]:
+        {"reply_text": str, "received_at": ISO timestamp, "gmail_message_id": str}
+
+    Saves case_state.json after storing.
+
+    Parameters:
+        case:          Case dict loaded from case_state.json.
+        actor_value:   Actor enum value string (e.g. "OLD_PK").
+        followup_type: "dokument" or "rueckfrage".
+
+    Returns:
+        Reply text if found, None otherwise.
+    """
+    try:
+        service = get_gmail_service()
+    except (FileNotFoundError, ImportError, RuntimeError):
+        return None
+
+    case_id = case.get("case_id", "UNKNOWN")
+    query   = f"in:inbox {case_id} {actor_value} {followup_type}"
+    results = service.users().messages().list(userId="me", q=query).execute()
+    messages = results.get("messages", [])
+
+    if not messages:
+        return None
+
+    # Determine earliest acceptable internalDate from the send timestamp.
+    min_internal_date_ms: int = 0
+    if followup_type == "dokument":
+        sent_at_str = (
+            case.get("follow_up_requests", {})
+                .get(actor_value, {})
+                .get("sent_at", "")
+        )
+    else:  # rueckfrage
+        questions   = case.get("follow_up_questions", {}).get(actor_value, [])
+        sent_at_str = questions[-1]["sent_at"] if questions else ""
+
+    if sent_at_str:
+        try:
+            sent_dt = datetime.fromisoformat(sent_at_str.replace("Z", "+00:00"))
+            min_internal_date_ms = int(sent_dt.timestamp() * 1000)
+        except ValueError:
+            pass
+
+    for meta in messages:
+        msg_id = meta["id"]
+        msg    = service.users().messages().get(
+            userId="me", id=msg_id, format="full"
+        ).execute()
+
+        internal_date_ms = int(msg.get("internalDate", "0"))
+        if internal_date_ms <= min_internal_date_ms:
+            continue
+
+        body = _extract_body(msg)
+        _mark_read(service, msg_id)
+
+        if not body:
+            continue
+
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+        case.setdefault("follow_up_replies", {}).setdefault(actor_value, {})[followup_type] = {
+            "reply_text":       body,
+            "received_at":      now_str,
+            "gmail_message_id": msg_id,
+        }
+        _save_case(case)
+        return body
+
+    return None
+
+
+def get_followup_status(case: dict, actor_value: str, followup_type: str) -> str:
+    """
+    Returns the follow-up email status for a specific actor and follow-up type.
+
+    Status values:
+        "not_sent" — no follow-up email sent yet
+        "sent"     — follow-up sent, waiting for reply
+        "replied"  — reply received
+
+    Parameters:
+        case:          Case dict loaded from case_state.json.
+        actor_value:   Actor enum value string (e.g. "OLD_PK").
+        followup_type: "dokument" or "rueckfrage".
+
+    Returns:
+        One of "not_sent", "sent", "replied".
+    """
+    if case.get("follow_up_replies", {}).get(actor_value, {}).get(followup_type):
+        return "replied"
+
+    if followup_type == "dokument":
+        if actor_value in case.get("follow_up_requests", {}):
+            return "sent"
+    else:  # rueckfrage
+        if case.get("follow_up_questions", {}).get(actor_value):
+            return "sent"
+
+    return "not_sent"
+
+
 def get_email_status(case: dict, actor_value: str) -> str:
     """
     Returns the email coordination status for a specific actor.
