@@ -1610,8 +1610,11 @@ def _vs_step_4_koordination() -> None:
                             "institution_responses", {}
                         ).get(actor.value, {})
                         st.success(f"Antwort erhalten von {actor_label}")
-                        for k, v in parsed.items():
-                            st.caption(f"{k}: {v}")
+                        if "raw_reply" in parsed:
+                            st.info(parsed["raw_reply"])
+                        else:
+                            for k, v in parsed.items():
+                                st.caption(f"{k}: {v}")
 
         # Advance automatically once all activated actors have replied via email
         all_responded = all(
@@ -1709,7 +1712,9 @@ def _vs_step_5_ergebnis() -> None:
             if state == ActorState.COMPLETED and resp:
                 st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
-                if actor == Actor.OLD_PK:
+                if "raw_reply" in resp:
+                    st.info(resp["raw_reply"])
+                elif actor == Actor.OLD_PK:
                     chf = resp.get("freizuegigkeit_chf")
                     st.markdown(
                         f"Freizügigkeitsguthaben: **{_fmt_chf(chf) if chf is not None else '—'}**"

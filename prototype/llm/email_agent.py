@@ -561,7 +561,7 @@ def poll_followup_inbox(
         return None
 
     case_id = case.get("case_id", "UNKNOWN")
-    query   = f"in:inbox {case_id} {actor_value}"
+    query   = f"in:inbox {case_id}"
     results = service.users().messages().list(userId="me", q=query).execute()
     messages = results.get("messages", [])
 

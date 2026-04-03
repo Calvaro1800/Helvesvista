@@ -1,8 +1,8 @@
 {
-  "case_id": "63550610",
+  "case_id": "60F43C7E",
   "user_name": "Christopher Alvaro",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "can i get an update about my professional situation?",
+  "situation": "donnne moi un aperçu de ma sitation pro stp?",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,7 +10,7 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "can i get an update about my professional situation?",
+    "user_summary": "donnne moi un aperçu de ma sitation pro stp?",
     "missing_info": []
   },
   "activated_actors": [
@@ -19,13 +19,13 @@
   ],
   "requests": {
     "OLD_PK": {
-      "sent_at": 1775204210.251946,
+      "sent_at": 1775204766.838847,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
     "NEW_PK": {
-      "sent_at": 1775204210.251946,
+      "sent_at": 1775204766.838847,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -33,14 +33,10 @@
   },
   "institution_responses": {
     "NEW_PK": {
-      "eintrittsdatum": "01.04.2025",
-      "bvg_koordinationsabzug": 26460,
-      "bvg_pflicht": true
+      "raw_reply": "wallah t'es mignon\r\n\r\nOn Fri, Apr 3, 2026 at 10:26 AM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Christopher Alvaro wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Christopher Alvaro\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    60F43C7E\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"donnne moi un aperçu de ma sitation pro stp?\"\r\n>\r\n> Christopher Alvaro wird in Kürze in Ihrem Unternehmen eintreten. Im Rahmen\r\n> dieses Stellenwechsels sind die Anmeldung zur BVG-Pflicht sowie die\r\n> Übernahme des Freizügigkeitsguthabens von der bisherigen Pensionskasse zu\r\n> regeln.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Eintrittsdatum\r\n>   • Geltender BVG-Koordinationsabzug\r\n>   • Bestätigung der BVG-Pflicht\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID 60F43C7E um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: 60F43C7E | NEW_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
     },
     "OLD_PK": {
-      "freizuegigkeit_chf": 45200,
-      "austrittsdatum": "31.03.2025",
-      "status": "Austritt bestätigt"
+      "raw_reply": "biensur courzin la voicic (WAHLLAH BOK)\r\n\r\nOn Fri, Apr 3, 2026 at 10:26 AM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Christopher Alvaro wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Christopher Alvaro\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    60F43C7E\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"donnne moi un aperçu de ma sitation pro stp?\"\r\n>\r\n> Christopher Alvaro tritt in Kürze aus Ihrem Versichertenbestand aus und\r\n> wechselt zu einem neuen Arbeitgeber. Im Rahmen dieses Stellenwechsels ist\r\n> die Abwicklung der Freizügigkeitsleistung gemäss Freizügigkeitsgesetz (FZG)\r\n> erforderlich.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Höhe des Freizügigkeitsguthabens zum Austrittsdatum\r\n>   • Austrittsdatum\r\n>   • Bestätigung der Überweisungsadresse für die neue Pensionskasse\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID 60F43C7E um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: 60F43C7E | OLD_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
     }
   },
   "institution_responded": {
@@ -54,18 +50,13 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-03T10:16:12",
-  "follow_up_requests": {
-    "OLD_PK": {
-      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Freizügigkeitsabrechnung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nChristopher Alvaro",
-      "sent_at": "2026-04-03T10:18:14"
-    }
-  },
+  "created_at": "2026-04-03T10:25:51",
+  "follow_up_requests": {},
   "follow_up_questions": {
     "OLD_PK": [
       {
-        "question": "ah bon?",
-        "sent_at": "2026-04-03T10:18:30"
+        "question": "pas toop la reponse",
+        "sent_at": "2026-04-03T10:27:21"
       }
     ]
   },
@@ -78,32 +69,32 @@
   "email_sent": {
     "NEW_PK": {
       "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T08:16:59",
-      "message_id": "19d526ac1f28fc69",
-      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall 63550610",
+      "sent_at": "2026-04-03T08:26:10",
+      "message_id": "19d52732b3f38ac5",
+      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall 60F43C7E",
       "error": false
     },
     "OLD_PK": {
       "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T08:17:00",
-      "message_id": "19d526ac857c7dde",
-      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall 63550610",
+      "sent_at": "2026-04-03T08:26:13",
+      "message_id": "19d527335bbd7f9d",
+      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall 60F43C7E",
       "error": false
     }
   },
   "institution_response_date": {
-    "NEW_PK": "2026-04-03T08:17:29",
-    "OLD_PK": "2026-04-03T08:17:31"
+    "NEW_PK": "2026-04-03T08:26:57",
+    "OLD_PK": "2026-04-03T08:26:59"
   },
   "email_replies": {
     "NEW_PK": {
-      "received_at": "2026-04-03T08:17:29",
-      "gmail_message_id": "19d526b0076c4118",
+      "received_at": "2026-04-03T08:26:57",
+      "gmail_message_id": "19d5273bfd98f000",
       "parsed": true
     },
     "OLD_PK": {
-      "received_at": "2026-04-03T08:17:31",
-      "gmail_message_id": "19d526b1ebc0958e",
+      "received_at": "2026-04-03T08:26:59",
+      "gmail_message_id": "19d52739f21dd32a",
       "parsed": true
     }
   }
