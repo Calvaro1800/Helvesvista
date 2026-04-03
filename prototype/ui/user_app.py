@@ -42,6 +42,7 @@ from core.states import Actor, ActorState, OrchestratorState
 from llm.email_agent import (
     get_email_status,
     poll_inbox,
+    send_followup_email,
     send_institution_email,
 )
 
@@ -1542,8 +1543,6 @@ def _vs_step_4_koordination() -> None:
                                 ok = send_institution_email(
                                     actor, fresh_case, email_input
                                 )
-                            st.write(f"DEBUG: send result = {ok}")
-                            st.write(f"DEBUG: case email_sent = {_load_case().get('email_sent', {})}")
                             if ok:
                                 st.success(f"E-Mail gesendet an {email_input}")
                                 st.rerun()
@@ -1828,12 +1827,22 @@ def _vs_step_5_ergebnis() -> None:
                         disabled=req_already_sent,
                     ):
                         c = _load_case()
-                        c.setdefault("follow_up_requests", {})[actor.value] = {
-                            "text":    edited_text,
-                            "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                        }
-                        _save_case(c)
-                        st.success("Anfrage wurde gespeichert.")
+                        inst_email_addr = c.get("institution_emails", {}).get(actor.value, "")
+                        case_id = c.get("case_id", "UNKNOWN")
+                        email_subject = (
+                            f"HelveVista \u2014 Dokumentenanfrage {name} \u2014 Fall {case_id[:8]}"
+                        )
+                        with st.spinner("E-Mail wird gesendet..."):
+                            ok = send_followup_email(inst_email_addr, email_subject, edited_text) if inst_email_addr else False
+                        if ok:
+                            c.setdefault("follow_up_requests", {})[actor.value] = {
+                                "text":    edited_text,
+                                "sent_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                            }
+                            _save_case(c)
+                            st.success("Anfrage gesendet.")
+                        else:
+                            st.error("Fehler beim Senden. Bitte prüfen Sie die Gmail-Konfiguration oder ob eine Institutions-E-Mail hinterlegt ist.")
                         st.rerun()
 
             with col_b:
@@ -1858,14 +1867,24 @@ def _vs_step_5_ergebnis() -> None:
                     ):
                         if question.strip():
                             c = _load_case()
-                            c.setdefault("follow_up_questions", {}).setdefault(
-                                actor.value, []
-                            ).append({
-                                "question": question.strip(),
-                                "sent_at":  time.strftime("%Y-%m-%dT%H:%M:%S"),
-                            })
-                            _save_case(c)
-                            st.success("Rückfrage wurde gespeichert.")
+                            inst_email_addr = c.get("institution_emails", {}).get(actor.value, "")
+                            case_id = c.get("case_id", "UNKNOWN")
+                            email_subject = (
+                                f"HelveVista \u2014 Rückfrage {name} \u2014 Fall {case_id[:8]}"
+                            )
+                            with st.spinner("E-Mail wird gesendet..."):
+                                ok = send_followup_email(inst_email_addr, email_subject, question.strip()) if inst_email_addr else False
+                            if ok:
+                                c.setdefault("follow_up_questions", {}).setdefault(
+                                    actor.value, []
+                                ).append({
+                                    "question": question.strip(),
+                                    "sent_at":  time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                })
+                                _save_case(c)
+                                st.success("Rückfrage gesendet.")
+                            else:
+                                st.error("Fehler beim Senden. Bitte prüfen Sie die Gmail-Konfiguration oder ob eine Institutions-E-Mail hinterlegt ist.")
                             st.rerun()
                         else:
                             st.warning("Bitte geben Sie Ihre Frage ein.")

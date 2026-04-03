@@ -1,0 +1,120 @@
+{
+  "case_id": "F25722E0",
+  "user_name": "Thomais meier",
+  "user_email": "christopheralvaro.o@gmail.com",
+  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG zur Coop AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle nötigen Schritte eingeleitet werden.\nVorsorgeausweis fictif\n\nArbeitgeber : Migros AG\nPensionskasse : Migros-Pensionskasse\nFreizügigkeitsguthaben : CHF 48'350\nEintrittsdatum : 01.03.2020\nAustrittsdatum : 30.04.2026",
+  "structured_context": {
+    "use_case": "STELLENWECHSEL",
+    "actors_involved": [
+      "OLD_PK",
+      "NEW_PK"
+    ],
+    "avs_required": false,
+    "user_summary": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG zur Coop AG. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle nötigen Schritte eingeleitet werden.\nVorsorgeausweis fictif\n\nArbeitgeber : Migros AG\nPensionskasse : Migros-Pensionskasse\nFreizügigkeitsguthaben : CHF 48'350\nEintrittsdatum : 01.03.2020\nAustrittsdatum : 30.04.2026",
+    "missing_info": []
+  },
+  "activated_actors": [
+    "NEW_PK",
+    "OLD_PK"
+  ],
+  "requests": {
+    "NEW_PK": {
+      "sent_at": 1775202767.8269172,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    },
+    "OLD_PK": {
+      "sent_at": 1775202767.8269172,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    }
+  },
+  "institution_responses": {
+    "NEW_PK": {
+      "eintrittsdatum": "01.04.2025",
+      "bvg_koordinationsabzug": 26460,
+      "bvg_pflicht": true
+    },
+    "OLD_PK": {
+      "freizuegigkeit_chf": 45200,
+      "austrittsdatum": "31.03.2025",
+      "status": "Austritt bestätigt"
+    }
+  },
+  "institution_responded": {
+    "NEW_PK": true,
+    "OLD_PK": true
+  },
+  "actor_states": {
+    "OLD_PK": "COMPLETED",
+    "NEW_PK": "COMPLETED",
+    "AVS": "SKIPPED"
+  },
+  "orchestrator_state": "USER_VALIDATION",
+  "final_decision": null,
+  "created_at": "2026-04-03T09:52:11",
+  "follow_up_requests": {
+    "OLD_PK": {
+      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Freizügigkeitsabrechnung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nThomais meier",
+      "sent_at": "2026-04-03T09:55:45"
+    },
+    "NEW_PK": {
+      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Eingangsbestätigung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nThomais meier",
+      "sent_at": "2026-04-03T09:55:48"
+    }
+  },
+  "follow_up_questions": {
+    "OLD_PK": [
+      {
+        "question": "saluz",
+        "sent_at": "2026-04-03T09:56:20"
+      }
+    ],
+    "NEW_PK": [
+      {
+        "question": "salut",
+        "sent_at": "2026-04-03T09:56:25"
+      }
+    ]
+  },
+  "institution_clarification_requests": {},
+  "user_clarification_responses": {},
+  "institution_emails": {
+    "OLD_PK": "info.helvevista@gmail.com",
+    "NEW_PK": "info.helvevista@gmail.com"
+  },
+  "email_sent": {
+    "NEW_PK": {
+      "to": "info.helvevista@gmail.com",
+      "sent_at": "2026-04-03T07:52:51",
+      "message_id": "19d5254aa08ce26f",
+      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall F25722E0",
+      "error": false
+    },
+    "OLD_PK": {
+      "to": "info.helvevista@gmail.com",
+      "sent_at": "2026-04-03T07:52:53",
+      "message_id": "19d5254b04929350",
+      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall F25722E0",
+      "error": false
+    }
+  },
+  "institution_response_date": {
+    "NEW_PK": "2026-04-03T07:55:07",
+    "OLD_PK": "2026-04-03T07:55:09"
+  },
+  "email_replies": {
+    "NEW_PK": {
+      "received_at": "2026-04-03T07:55:07",
+      "gmail_message_id": "19d52564e1336b00",
+      "parsed": true
+    },
+    "OLD_PK": {
+      "received_at": "2026-04-03T07:55:09",
+      "gmail_message_id": "19d5255f5237edad",
+      "parsed": true
+    }
+  }
+}

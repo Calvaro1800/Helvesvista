@@ -354,13 +354,64 @@ def send_institution_email(
     return True
 
 
+def send_followup_email(
+    institution_email: str,
+    subject: str,
+    body: str,
+) -> bool:
+    """
+    Sends a free-text follow-up email (document request or question) from
+    info.helvevista@gmail.com to the given institution via Gmail API.
+
+    Does NOT modify the orchestrator state machine.
+
+    Returns:
+        True on success, False on failure.
+    """
+    print(f"[email_agent] send_followup_email to {institution_email}...")
+
+    try:
+        service = get_gmail_service()
+    except (FileNotFoundError, ImportError, RuntimeError) as exc:
+        import traceback
+        traceback.print_exc()
+        print(f"[email_agent] SEND FAILED (service): {exc}")
+        return False
+
+    msg = MIMEMultipart("alternative")
+    msg["From"]    = f"{SENDER_DISPLAY} <{SENDER_ADDRESS}>"
+    msg["To"]      = institution_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+    try:
+        sent = service.users().messages().send(
+            userId="me",
+            body={"raw": raw},
+        ).execute()
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+        traceback.print_exc()
+        print(f"[email_agent] SEND FAILED: {exc}")
+        return False
+
+    print(f"[email_agent] Followup sent! message_id={sent.get('id', '')}")
+    return True
+
+
 def poll_inbox(case_id: str, actor_value: str) -> Optional[dict]:
     """
     Polls Gmail inbox for an unread reply to a specific case + actor.
 
-    Search query: ``{case_id} {actor_value}`` in:inbox is:unread
+    Search query: ``{case_id} {actor_value}`` in:inbox (no is:unread filter)
 
-    For the first matching unread message:
+    Only processes emails whose internalDate is strictly after the
+    ``sent_at`` timestamp recorded in ``case["email_sent"][actor_value]``,
+    so pre-existing or already-read messages are never matched.
+
+    For the first matching message:
       1. Extracts plain-text body.
       2. Calls parse_institution_reply() to extract structured data.
       3. Saves parsed data to case under institution_responses[actor_value].
@@ -379,7 +430,7 @@ def poll_inbox(case_id: str, actor_value: str) -> Optional[dict]:
     except (FileNotFoundError, ImportError, RuntimeError):
         return None
 
-    query   = f"in:inbox is:unread {case_id} {actor_value}"
+    query   = f"in:inbox {case_id} {actor_value}"
     results = service.users().messages().list(userId="me", q=query).execute()
     messages = results.get("messages", [])
 
@@ -388,11 +439,32 @@ def poll_inbox(case_id: str, actor_value: str) -> Optional[dict]:
 
     case = _load_case()
 
+    # Determine the earliest acceptable internalDate (ms since epoch).
+    # Only process emails received AFTER the send_at timestamp so that
+    # old or pre-existing messages are never mistakenly matched.
+    sent_at_str = (
+        case.get("email_sent", {})
+            .get(actor_value, {})
+            .get("sent_at", "")
+    )
+    min_internal_date_ms: int = 0
+    if sent_at_str:
+        try:
+            sent_dt = datetime.fromisoformat(sent_at_str.replace("Z", "+00:00"))
+            min_internal_date_ms = int(sent_dt.timestamp() * 1000)
+        except ValueError:
+            pass
+
     for meta in messages:
         msg_id = meta["id"]
         msg    = service.users().messages().get(
-            userId="me", messageId=msg_id, format="full"
+            userId="me", id=msg_id, format="full"
         ).execute()
+
+        # Skip emails that arrived before (or at) the time we sent our request.
+        internal_date_ms = int(msg.get("internalDate", "0"))
+        if internal_date_ms <= min_internal_date_ms:
+            continue
 
         body = _extract_body(msg)
         _mark_read(service, msg_id)
