@@ -22,7 +22,7 @@ import json
 import anthropic
 from typing import Optional
 
-from ..core.states import Actor
+from core.states import Actor
 
 
 # ── Client Anthropic ─────────────────────────────────────────────────────────

@@ -1,47 +1,57 @@
 {
-  "case_id": "5D7E046D",
+  "case_id": "20AA7E74",
   "user_name": "Christopher Alvaro",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "je change de job. j'ai besoin de quoi?",
+  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur Zürich Versicherung AG. Mein letzter Arbeitstag bei Swisscom ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle notwendigen Schritte eingeleitet werden.",
   "structured_context": {
-    "use_case": "STELLENWECHSEL",
+    "use_case": "AUTRE",
     "actors_involved": [
       "OLD_PK",
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "je change de job. j'ai besoin de quoi?",
-    "missing_info": []
+    "user_summary": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur Zürich Versicherung AG. Mein letzter Arbeitstag bei Swisscom ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassengu",
+    "missing_info": [
+      "Strukturierung fehlgeschlagen — manuelle Überprüfung erforderlich"
+    ]
   },
   "activated_actors": [
-    "NEW_PK",
-    "OLD_PK"
+    "OLD_PK",
+    "NEW_PK"
   ],
   "requests": {
-    "NEW_PK": {
-      "sent_at": 1775205388.506536,
+    "OLD_PK": {
+      "sent_at": 1775423869.523702,
       "payload": {
-        "use_case": "STELLENWECHSEL"
+        "use_case": "AUTRE"
       }
     },
-    "OLD_PK": {
-      "sent_at": 1775205388.506536,
+    "NEW_PK": {
+      "sent_at": 1775423869.523702,
       "payload": {
-        "use_case": "STELLENWECHSEL"
+        "use_case": "AUTRE"
       }
     }
   },
   "institution_responses": {
-    "NEW_PK": {
-      "raw_reply": "t'as besoin de R le sang.\r\n\r\nOn Fri, Apr 3, 2026 at 10:36 AM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Christopher Alvaro wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Christopher Alvaro\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    5D7E046D\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"je change de job. j'ai besoin de quoi?\"\r\n>\r\n> Christopher Alvaro wird in Kürze in Ihrem Unternehmen eintreten. Im Rahmen\r\n> dieses Stellenwechsels sind die Anmeldung zur BVG-Pflicht sowie die\r\n> Übernahme des Freizügigkeitsguthabens von der bisherigen Pensionskasse zu\r\n> regeln.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Eintrittsdatum\r\n>   • Geltender BVG-Koordinationsabzug\r\n>   • Bestätigung der BVG-Pflicht\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID 5D7E046D um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: 5D7E046D | NEW_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
-    },
     "OLD_PK": {
-      "raw_reply": "wallah chepa\r\n\r\nOn Fri, Apr 3, 2026 at 10:36 AM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Christopher Alvaro wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Christopher Alvaro\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    5D7E046D\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"je change de job. j'ai besoin de quoi?\"\r\n>\r\n> Christopher Alvaro tritt in Kürze aus Ihrem Versichertenbestand aus und\r\n> wechselt zu einem neuen Arbeitgeber. Im Rahmen dieses Stellenwechsels ist\r\n> die Abwicklung der Freizügigkeitsleistung gemäss Freizügigkeitsgesetz (FZG)\r\n> erforderlich.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Höhe des Freizügigkeitsguthabens zum Austrittsdatum\r\n>   • Austrittsdatum\r\n>   • Bestätigung der Überweisungsadresse für die neue Pensionskasse\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID 5D7E046D um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: 5D7E046D | OLD_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
+      "OLD_PK": {
+        "freizuegigkeit_chf": 285000,
+        "austrittsdatum": "2026-04-30",
+        "status": "austritt_bestaetigt"
+      }
+    },
+    "NEW_PK": {
+      "NEW_PK": {
+        "eintrittsdatum": "2026-05-01",
+        "bvg_koordinationsabzug": 25725,
+        "bvg_pflicht": true
+      }
     }
   },
   "institution_responded": {
-    "NEW_PK": true,
-    "OLD_PK": true
+    "OLD_PK": true,
+    "NEW_PK": true
   },
   "actor_states": {
     "OLD_PK": "COMPLETED",
@@ -50,66 +60,17 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-03T10:36:03",
-  "follow_up_requests": {
-    "OLD_PK": {
-      "text": "Sehr geehrte Damen und Herren,\n\nich bitte um Zustellung folgender Unterlagen: Freizügigkeitsabrechnung. Bitte senden Sie diese an meine Adresse.\n\nMit freundlichen Grüssen,\nChristopher Alvaro",
-      "sent_at": "2026-04-03T10:37:49"
-    }
-  },
-  "follow_up_questions": {
-    "OLD_PK": [
-      {
-        "question": "vasy t'abuses!",
-        "sent_at": "2026-04-03T10:37:50"
-      }
-    ]
-  },
+  "created_at": "2026-04-05T23:15:26",
+  "follow_up_requests": {},
+  "follow_up_questions": {},
   "institution_clarification_requests": {},
   "user_clarification_responses": {},
   "institution_emails": {
     "OLD_PK": "info.helvevista@gmail.com",
     "NEW_PK": "info.helvevista@gmail.com"
   },
-  "email_sent": {
-    "NEW_PK": {
-      "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T08:36:31",
-      "message_id": "19d527ca5c60d7ac",
-      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall 5D7E046D",
-      "error": false
-    },
-    "OLD_PK": {
-      "to": "info.helvevista@gmail.com",
-      "sent_at": "2026-04-03T08:36:32",
-      "message_id": "19d527ca84630216",
-      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall 5D7E046D",
-      "error": false
-    }
-  },
   "institution_response_date": {
-    "NEW_PK": "2026-04-03T08:37:06",
-    "OLD_PK": "2026-04-03T08:37:12"
-  },
-  "email_replies": {
-    "NEW_PK": {
-      "received_at": "2026-04-03T08:37:06",
-      "gmail_message_id": "19d527cf4e2a3bfa",
-      "parsed": true
-    },
-    "OLD_PK": {
-      "received_at": "2026-04-03T08:37:12",
-      "gmail_message_id": "19d527d12ecc1b5b",
-      "parsed": true
-    }
-  },
-  "follow_up_replies": {
-    "OLD_PK": {
-      "rueckfrage": {
-        "reply_text": "mais non couzin...\r\n\r\nOn Fri, Apr 3, 2026 at 10:37 AM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> vasy t'abuses!\r\n",
-        "received_at": "2026-04-03T08:38:23",
-        "gmail_message_id": "19d527e127f1cc0f"
-      }
-    }
+    "OLD_PK": "2026-04-05T23:18:00",
+    "NEW_PK": "2026-04-05T23:18:02"
   }
 }

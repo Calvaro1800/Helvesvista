@@ -49,6 +49,12 @@ from llm.email_agent import (
 )
 
 
+def _json_default(obj):
+    if hasattr(obj, "value"):
+        return obj.value
+    return str(obj)
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # DOMAIN CONSTANTS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -273,8 +279,8 @@ hr { border-color: #1A3048 !important; margin: 1.5rem 0 !important; }
     padding: 3rem 0 1.5rem 0;
     letter-spacing: 0.12em;
 }
-.hv-logo-lg .helve { color: #C9A84C; font-size: 3.2rem; font-weight: 700; }
-.hv-logo-lg .vista { color: #FFFFFF;  font-size: 3.2rem; font-weight: 200; }
+.hv-logo-lg .helve { color: #C9A84C; font-size: 3.5rem; font-weight: 700; }
+.hv-logo-lg .vista { color: #FFFFFF;  font-size: 3.5rem; font-weight: 200; }
 .hv-logo-lg .sub {
     display: block;
     color: #3E5F7A;
@@ -750,7 +756,7 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
     system_prompt = (
         f"Du bist {actor_name}, eine Schweizer Vorsorgeeinrichtung. "
         f"Beantworte die Anfrage von HelveVista professionell und realistisch.\n\n"
-        f"Kontext: {json.dumps(context, ensure_ascii=False)}\n\n"
+        f"Kontext: {json.dumps(context, ensure_ascii=False, default=_json_default)}\n\n"
         f"Antworte NUR als JSON mit diesen Feldern je nach Institution:\n"
         f"- OLD_PK: freizuegigkeit_chf (int), austrittsdatum (str), status (str)\n"
         f"- NEW_PK: eintrittsdatum (str), bvg_koordinationsabzug (int), bvg_pflicht (bool)\n"
@@ -766,13 +772,10 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
             messages=[{"role": "user", "content": "Bitte antworte auf die HelveVista-Anfrage."}],
         )
         raw = msg.content[0].text.strip()
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        return json.loads(raw.strip())
-    except Exception:
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[_simulate_llm] Parsing failed for {actor}: {e!r}. Raw: {locals().get('raw', '<no response>')}")
         return DEMO_RESPONSES[actor]
 
 
@@ -1685,8 +1688,42 @@ def _vs_step_5_ergebnis() -> None:
     # LLM-generated case summary (once)
     if st.session_state.llm_summary is None and _use_llm():
         with st.spinner("Zusammenfassung wird erstellt…"):
-            from llm.structurer import generate_case_summary  # noqa: PLC0415
-            st.session_state.llm_summary = generate_case_summary(orch._build_summary())
+            try:
+                import anthropic as _anthropic  # noqa: PLC0415
+                _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+                _old_pk = case.get("institution_responses", {}).get(Actor.OLD_PK.value, {})
+                _new_pk = case.get("institution_responses", {}).get(Actor.NEW_PK.value, {})
+                _user_msg = (
+                    f"Name des Versicherten: {case.get('user_name', '—')}\n\n"
+                    f"Originale Situation: {case.get('situation', '—')}\n\n"
+                    f"Antwort Alte Pensionskasse: {json.dumps(_old_pk, ensure_ascii=False, default=_json_default)}\n\n"
+                    f"Antwort Neue Pensionskasse: {json.dumps(_new_pk, ensure_ascii=False, default=_json_default)}"
+                )
+                _resp = _client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=512,
+                    system=(
+                        "Du bist HelveVista, ein Schweizer Vorsorgekoordinationssystem. "
+                        "Erstelle eine präzise, persönliche Zusammenfassung des Vorsorgevorgangs für den Versicherten. "
+                        "Verwende NUR die bereitgestellten Daten — keine Erfindungen. "
+                        "Wenn eine Information fehlt, erwähne sie nicht. "
+                        "Schreibe in der Du-Form, professionell und klar. "
+                        "Maximale Länge: 4-5 Sätze."
+                    ),
+                    messages=[{"role": "user", "content": _user_msg}],
+                )
+                st.session_state.llm_summary = _resp.content[0].text.strip()
+            except Exception:
+                _old_pk = case.get("institution_responses", {}).get(Actor.OLD_PK.value, {})
+                _new_pk = case.get("institution_responses", {}).get(Actor.NEW_PK.value, {})
+                _name = case.get("user_name", "Versicherte/r")
+                _chf = _old_pk.get("freizuegigkeit_chf")
+                _datum = _new_pk.get("eintrittsdatum", "—")
+                st.session_state.llm_summary = (
+                    f"Liebe/r {_name}, Ihr Stellenwechsel wurde koordiniert. "
+                    + (f"Ihr Freizügigkeitsguthaben von {_fmt_chf(_chf)} wird übertragen. " if _chf else "")
+                    + (f"Ihr Eintritt bei der neuen Pensionskasse ist per {_datum} bestätigt." if _datum != "—" else "")
+                )
 
     if st.session_state.llm_summary:
         st.info(st.session_state.llm_summary)
@@ -1703,7 +1740,7 @@ def _vs_step_5_ergebnis() -> None:
         state   = process.state
         _, label, badge_kind = STATE_DISPLAY.get(state, ("—", state.value, "pending"))
         name    = ACTOR_LABELS[actor]
-        resp    = inst_resp.get(actor.value) or DEMO_RESPONSES.get(actor, {})
+        resp    = case.get("institution_responses", {}).get(actor.value, {})
 
         with st.container(border=True):
             col_h, col_b = st.columns([3, 1])
