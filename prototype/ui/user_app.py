@@ -492,6 +492,9 @@ def _new_case(user_name: str, user_email: str = "") -> dict:
 
 def _init_session() -> None:
     defaults: dict = {
+        # Onboarding
+        "onboarding_done":  False,
+        "onboarding_step":  0,
         # Auth
         "logged_in":        False,
         "role":             None,        # "versicherter" | "institution"
@@ -3404,11 +3407,399 @@ def _render_pending_clarifications(case: dict) -> bool:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# ONBOARDING — 4-step interactive introduction (shown once before login)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _show_onboarding() -> None:
+    """Render the 4-step onboarding flow. Sets onboarding_done when complete."""
+
+    step = st.session_state.onboarding_step
+
+    # ── Centered container CSS ─────────────────────────────────────────────────
+    st.markdown(
+        """
+        <style>
+        .ob-wrap {
+            max-width: 700px;
+            margin: 0 auto;
+            padding: 2rem 1rem 1rem 1rem;
+        }
+        .ob-icon-wrap {
+            text-align: center;
+            margin-bottom: 1.8rem;
+        }
+        .ob-title {
+            text-align: center;
+            color: #FFFFFF;
+            font-size: 1.75rem;
+            font-weight: 300;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.5rem;
+        }
+        .ob-subtitle {
+            text-align: center;
+            color: #C9A84C;
+            font-size: 0.85rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 1.8rem;
+        }
+        .ob-body {
+            color: #8AAEC8;
+            font-size: 0.95rem;
+            line-height: 1.85;
+            text-align: center;
+            max-width: 560px;
+            margin: 0 auto 2rem auto;
+        }
+        .ob-tl-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #1A3048;
+        }
+        .ob-tl-item:last-child { border-bottom: none; }
+        .ob-tl-icon {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            background: #122033;
+            border: 1px solid #1A3048;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ob-tl-num {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            background: #1A3048;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #C9A84C;
+            font-size: 0.72rem;
+            font-weight: 600;
+            margin-top: 7px;
+        }
+        .ob-tl-text .ob-tl-title {
+            color: #D0DCE8;
+            font-size: 0.92rem;
+            font-weight: 500;
+            margin-bottom: 0.15rem;
+        }
+        .ob-tl-text .ob-tl-desc {
+            color: #5A7A9A;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        .ob-card {
+            background: #122033;
+            border: 1px solid #1A3048;
+            border-radius: 8px;
+            padding: 1.4rem 1.2rem;
+            text-align: center;
+            height: 100%;
+        }
+        .ob-card .ob-card-title {
+            color: #D0DCE8;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin: 0.8rem 0 0.5rem 0;
+        }
+        .ob-card .ob-card-body {
+            color: #5A7A9A;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+        .ob-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .ob-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #1A3048;
+            display: inline-block;
+        }
+        .ob-dot-active { background: #C9A84C; }
+        .ob-note {
+            text-align: center;
+            color: #3E5F7A;
+            font-size: 0.72rem;
+            letter-spacing: 0.02em;
+            margin-top: 1.2rem;
+            line-height: 1.6;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── SVG icon library ───────────────────────────────────────────────────────
+    SVG_SHIELD = (
+        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg">'
+        '<path d="M12 2L3 6v6c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V6L12 2z" '
+        'stroke="#C9A84C" stroke-width="1.5" fill="none"/>'
+        '<path d="M9 12l2 2 4-4" stroke="#C9A84C" stroke-width="1.5" '
+        'stroke-linecap="round" stroke-linejoin="round"/>'
+        '</svg>'
+    )
+    SVG_ROCKET = (
+        '<svg width="64" height="64" viewBox="0 0 24 24" fill="none" '
+        'xmlns="http://www.w3.org/2000/svg">'
+        '<path d="M12 2C12 2 6 6 6 13l3 1 1 3c3.5 1 7.5-1 9-6.5C20.5 5.5 12 2 12 2z" '
+        'stroke="#C9A84C" stroke-width="1.5" fill="none"/>'
+        '<circle cx="13.5" cy="9.5" r="1.5" stroke="#C9A84C" stroke-width="1.5"/>'
+        '<path d="M6 13l-3 4 4-1M18 6l1-4-4 1" stroke="#C9A84C" stroke-width="1.5" '
+        'stroke-linecap="round"/>'
+        '</svg>'
+    )
+
+    # Small SVGs for timeline / cards
+    def _svg_doc() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" '
+            'stroke="#C9A84C" stroke-width="1.5" fill="none"/>'
+            '<path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="#C9A84C" '
+            'stroke-width="1.5" stroke-linecap="round"/>'
+            '</svg>'
+        )
+
+    def _svg_search() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<circle cx="11" cy="11" r="7" stroke="#C9A84C" stroke-width="1.5"/>'
+            '<path d="M21 21l-4.35-4.35" stroke="#C9A84C" stroke-width="1.5" '
+            'stroke-linecap="round"/>'
+            '</svg>'
+        )
+
+    def _svg_users() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="#C9A84C" stroke-width="1.5"/>'
+            '<circle cx="9" cy="7" r="4" stroke="#C9A84C" stroke-width="1.5"/>'
+            '<path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" '
+            'stroke="#C9A84C" stroke-width="1.5"/>'
+            '</svg>'
+        )
+
+    def _svg_mail() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" '
+            'stroke="#C9A84C" stroke-width="1.5" fill="none"/>'
+            '<polyline points="22,6 12,13 2,6" stroke="#C9A84C" stroke-width="1.5"/>'
+            '</svg>'
+        )
+
+    def _svg_chart() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" stroke="#C9A84C" '
+            'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+            '</svg>'
+        )
+
+    def _svg_check() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<polyline points="20 6 9 17 4 12" stroke="#C9A84C" stroke-width="1.5" '
+            'stroke-linecap="round" stroke-linejoin="round"/>'
+            '</svg>'
+        )
+
+    def _svg_id() -> str:
+        return (
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" '
+            'xmlns="http://www.w3.org/2000/svg">'
+            '<rect x="2" y="5" width="20" height="14" rx="2" stroke="#C9A84C" stroke-width="1.5"/>'
+            '<circle cx="8" cy="12" r="2" stroke="#C9A84C" stroke-width="1.5"/>'
+            '<path d="M13 10h5M13 14h3" stroke="#C9A84C" stroke-width="1.5" stroke-linecap="round"/>'
+            '</svg>'
+        )
+
+    # ── Progress dots ──────────────────────────────────────────────────────────
+    def _dots(current: int) -> str:
+        dots = ""
+        for i in range(4):
+            cls = "ob-dot ob-dot-active" if i == current else "ob-dot"
+            dots += f'<span class="{cls}"></span>'
+        return f'<div class="ob-dots">{dots}</div>'
+
+    # ── Logo (small, centered) ─────────────────────────────────────────────────
+    st.markdown(
+        '<div style="text-align:center; padding: 1.5rem 0 0.5rem 0; '
+        'letter-spacing:0.12em;">'
+        '<span style="color:#C9A84C; font-size:1.4rem; font-weight:700;">HELVE</span>'
+        '<span style="color:#FFFFFF; font-size:1.4rem; font-weight:200;">VISTA</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Step content ───────────────────────────────────────────────────────────
+    if step == 0:
+        st.markdown(
+            f'<div class="ob-icon-wrap">{SVG_SHIELD}</div>'
+            '<div class="ob-title">Willkommen bei HelveVista</div>'
+            '<div class="ob-subtitle">Ihr digitaler Koordinationsassistent für die berufliche Vorsorge</div>'
+            '<div class="ob-body">'
+            'Ein Stellenwechsel bedeutet mehr als nur ein neues Büro.<br>'
+            'Ihre Pensionskasse muss umgezogen werden — und das erfordert<br>'
+            'die Koordination mehrerer Institutionen gleichzeitig.<br><br>'
+            'HelveVista übernimmt diese Koordination für Sie:<br>'
+            'strukturiert, sicher und nachvollziehbar.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    elif step == 1:
+        st.markdown(
+            '<div class="ob-title">So funktioniert HelveVista</div>'
+            '<div class="ob-subtitle">Sechs Schritte — eine klare Struktur</div>',
+            unsafe_allow_html=True,
+        )
+        timeline_items = [
+            (_svg_doc(),    "1", "Situation beschreiben",
+             "Schildern Sie Ihren Stellenwechsel in wenigen Sätzen."),
+            (_svg_search(), "2", "Automatische Analyse",
+             "HelveVista strukturiert Ihre Angaben und identifiziert Handlungsbedarf."),
+            (_svg_users(),  "3", "Institutionen identifizieren",
+             "Die beteiligten Pensionskassen und Ausgleichskassen werden ermittelt."),
+            (_svg_mail(),   "4", "Koordination & Kommunikation",
+             "HelveVista sendet Anfragen und verwaltet die Rückmeldungen."),
+            (_svg_chart(),  "5", "Ergebnisse & Übersicht",
+             "Alle Antworten werden zusammengefasst und verständlich dargestellt."),
+            (_svg_check(),  "6", "Entscheid & Abschluss",
+             "Sie bestätigen den Abschluss — HelveVista dokumentiert alles."),
+        ]
+        tl_html = '<div style="max-width:560px; margin:0 auto;">'
+        for icon_svg, num, title, desc in timeline_items:
+            tl_html += (
+                f'<div class="ob-tl-item">'
+                f'<div class="ob-tl-icon">{icon_svg}</div>'
+                f'<div class="ob-tl-num">{num}</div>'
+                f'<div class="ob-tl-text">'
+                f'<div class="ob-tl-title">{title}</div>'
+                f'<div class="ob-tl-desc">{desc}</div>'
+                f'</div>'
+                f'</div>'
+            )
+        tl_html += '</div>'
+        st.markdown(tl_html, unsafe_allow_html=True)
+
+    elif step == 2:
+        st.markdown(
+            '<div class="ob-title">Was Sie vorbereiten sollten</div>'
+            '<div class="ob-subtitle">Drei Angaben — mehr braucht es nicht</div>',
+            unsafe_allow_html=True,
+        )
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(
+                f'<div class="ob-card">'
+                f'<div style="display:flex;justify-content:center;">{_svg_doc()}</div>'
+                f'<div class="ob-card-title">Ihre Situation</div>'
+                f'<div class="ob-card-body">Beschreiben Sie kurz Ihren Stellenwechsel: '
+                f'Wann, von welchem zu welchem Arbeitgeber.</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with col2:
+            st.markdown(
+                f'<div class="ob-card">'
+                f'<div style="display:flex;justify-content:center;">{_svg_id()}</div>'
+                f'<div class="ob-card-title">Vorsorgeausweis (optional)</div>'
+                f'<div class="ob-card-body">Falls vorhanden, laden Sie Ihren aktuellen '
+                f'Vorsorgeausweis hoch. HelveVista extrahiert die relevanten Daten automatisch.</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with col3:
+            st.markdown(
+                f'<div class="ob-card">'
+                f'<div style="display:flex;justify-content:center;">{_svg_mail()}</div>'
+                f'<div class="ob-card-title">E-Mail-Adressen (Live-Modus)</div>'
+                f'<div class="ob-card-body">Im Live-Modus benötigen Sie die E-Mail-Adressen '
+                f'Ihrer alten und neuen Pensionskasse.</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
+    elif step == 3:
+        st.markdown(
+            f'<div class="ob-icon-wrap">{SVG_ROCKET}</div>'
+            '<div class="ob-title">Bereit?</div>'
+            '<div class="ob-body">'
+            'HelveVista führt Sie Schritt für Schritt durch den gesamten Prozess.<br>'
+            'Sie behalten jederzeit die Kontrolle und müssen nichts bestätigen,<br>'
+            'was Sie nicht verstehen.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # ── Progress dots ──────────────────────────────────────────────────────────
+    st.markdown(_dots(step), unsafe_allow_html=True)
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+    # ── Navigation buttons ─────────────────────────────────────────────────────
+    if step == 3:
+        # Final step — only "Jetzt starten"
+        col_l, col_c, col_r = st.columns([1, 2, 1])
+        with col_c:
+            if st.button("Jetzt starten  →", type="primary", use_container_width=True):
+                st.session_state.onboarding_done = True
+                st.rerun()
+        st.markdown(
+            '<div class="ob-note">'
+            'HelveVista ist ein Forschungsprototyp der ZHAW.<br>'
+            'Alle Daten werden nur lokal gespeichert.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        col_left, col_spacer, col_right = st.columns([2, 3, 2])
+        with col_left:
+            if step == 0:
+                if st.button("Überspringen", type="secondary", use_container_width=True):
+                    st.session_state.onboarding_done = True
+                    st.rerun()
+            else:
+                if st.button("← Zurück", type="secondary", use_container_width=True):
+                    st.session_state.onboarding_step = step - 1
+                    st.rerun()
+        with col_right:
+            if st.button("Weiter  →", type="primary", use_container_width=True):
+                st.session_state.onboarding_step = step + 1
+                st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ROUTER — dispatches to correct page/step based on session state
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
     _inject_css()
+
+    if not st.session_state.onboarding_done:
+        _show_onboarding()
+        return
 
     if not st.session_state.logged_in:
         _page_login()
