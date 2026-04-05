@@ -281,20 +281,13 @@ def send_institution_email(
     Returns:
         True on success, False on failure.
     """
-    print(f"[email_agent] Sending to {institution_email}...")
-    print(f"[email_agent] credentials.json: {CREDENTIALS_PATH.exists()}")
-    print(f"[email_agent] token.json: {TOKEN_PATH.exists()}")
-
     try:
         service = get_gmail_service()
     except (FileNotFoundError, ImportError, RuntimeError) as exc:
         import traceback
         traceback.print_exc()
-        print(f"[email_agent] SEND FAILED (service): {exc}")
         _record_email_error(case, actor.value, str(exc))
         return False
-
-    print(f"[email_agent] Gmail service obtained: OK")
 
     case_id        = case.get("case_id", "UNKNOWN")
     user_name      = case.get("user_name", "Versicherter")
@@ -325,8 +318,6 @@ def send_institution_email(
 
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 
-    print(f"[email_agent] Message built, sending...")
-
     try:
         sent = service.users().messages().send(
             userId="me",
@@ -335,12 +326,10 @@ def send_institution_email(
     except Exception as exc:  # noqa: BLE001
         import traceback
         traceback.print_exc()
-        print(f"[email_agent] SEND FAILED: {exc}")
         _record_email_error(case, actor.value, str(exc))
         return False
 
     message_id = sent.get("id", "")
-    print(f"[email_agent] Sent! message_id={message_id}")
     now_str    = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
     case.setdefault("email_sent", {})[actor.value] = {
@@ -368,14 +357,11 @@ def send_followup_email(
     Returns:
         True on success, False on failure.
     """
-    print(f"[email_agent] send_followup_email to {institution_email}...")
-
     try:
         service = get_gmail_service()
     except (FileNotFoundError, ImportError, RuntimeError) as exc:
         import traceback
         traceback.print_exc()
-        print(f"[email_agent] SEND FAILED (service): {exc}")
         return False
 
     msg = MIMEMultipart("alternative")
@@ -394,10 +380,8 @@ def send_followup_email(
     except Exception as exc:  # noqa: BLE001
         import traceback
         traceback.print_exc()
-        print(f"[email_agent] SEND FAILED: {exc}")
         return False
 
-    print(f"[email_agent] Followup sent! message_id={sent.get('id', '')}")
     return True
 
 

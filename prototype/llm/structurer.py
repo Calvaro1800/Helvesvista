@@ -47,17 +47,21 @@ Tu dois répondre UNIQUEMENT avec un objet JSON valide, sans texte avant ou apr�
 Format attendu :
 {
   "use_case": "STELLENWECHSEL" | "BVG_EINKAUF" | "AUTRE",
-  "actors_involved": ["OLD_PK", "NEW_PK", "AVS"],
-  "avs_required": true | false,
-  "user_summary": "Résumé en allemand de la situation de l'utilisateur (2-3 phrases)",
-  "missing_info": ["liste des informations manquantes si applicable"]
+  "actors_involved": ["OLD_PK", "NEW_PK"],
+  "avs_required": false,
+  "user_summary": "Zusammenfassung der Situation des Nutzers auf Deutsch (2-3 Sätze)",
+  "missing_info": []
 }
 
-Règles :
-- actors_involved doit contenir uniquement les acteurs réellement mentionnés ou impliqués
-- Pour un Stellenwechsel standard : OLD_PK et NEW_PK sont toujours impliqués
-- AVS est optionnel — uniquement si l'utilisateur mentionne l'IK-Auszug ou des questions AHV
+Règles CRITIQUES :
+- Si le texte contient l'un de ces mots : "Stellenwechsel", "Job wechsle", "neuen Job",
+  "Arbeitgeber wechsle", "neue Stelle", "wechsle meinen Job", "Jobwechsel", "Arbeitgeberwechsel"
+  → use_case DOIT être "STELLENWECHSEL" et actors_involved DOIT être ["OLD_PK", "NEW_PK"]
+- Pour tout Stellenwechsel : OLD_PK et NEW_PK sont TOUJOURS impliqués
+- AVS n'est inclus dans actors_involved que si l'utilisateur mentionne explicitement l'IK-Auszug ou des questions AHV
+- avs_required est true UNIQUEMENT si AVS est dans actors_involved
 - user_summary doit être en allemand, formulé pour l'utilisateur final
+- missing_info est une liste vide [] si toutes les informations essentielles sont présentes
 """
 
 
@@ -83,6 +87,12 @@ def structure_user_input(raw_input: str) -> dict:
     )
 
     raw = message.content[0].text.strip()
+    # Strip ```json fences if present
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
 
     try:
         result = json.loads(raw)
