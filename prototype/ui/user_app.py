@@ -527,7 +527,7 @@ def _init_session() -> None:
         # Chat (H3 — Perceived Support)
         "chat_history":     [],          # list of {question, answer}
         # Demo mode toggle
-        "auto_sim_enabled": True,        # False → institutions must respond manually
+        "auto_sim_enabled": False,       # False → institutions must respond manually (Live-Modus default)
         # Document extraction (Feature 2)
         "extracted_doc_data":  {},       # fields extracted from uploaded documents
         "_doc_upload_names":   [],       # track uploaded file names to detect new uploads
@@ -694,7 +694,7 @@ def _render_sidebar() -> None:
             )
             auto_sim = st.toggle(
                 "Simulationsmodus",
-                value=st.session_state.get("auto_sim_enabled", True),
+                value=st.session_state.get("auto_sim_enabled", False),
                 key="auto_sim_toggle",
                 help=(
                     "Ein: Institutionen antworten automatisch nach "
@@ -769,6 +769,13 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
     user_name = case.get("user_name", "")
     vorsorge  = case.get("vorsorge_ausweis", {})
 
+    vorsorge_json = json.dumps(vorsorge, ensure_ascii=False) if vorsorge else "keine Daten"
+    anti_hallucination = (
+        "Antworte NUR auf Basis der bereitgestellten Daten. "
+        "Wenn eine Information nicht vorhanden ist, antworte mit null. "
+        "Erfinde keine Werte. Keine generischen Antworten."
+    )
+
     if actor == Actor.OLD_PK:
         gesamtguthaben = (
             vorsorge.get("gesamtguthaben_chf")
@@ -777,11 +784,12 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
         )
         system_prompt = (
             "Du bist die alte Pensionskasse. Antworte NUR mit JSON.\n"
+            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
             "Verwende AUSSCHLIESSLICH diese Daten:\n"
             f"- freizuegigkeit_chf: {gesamtguthaben} (null wenn nicht verfügbar)\n"
-            "- austrittsdatum: extrahiert aus Situation\n"
-            "- status: 'Austritt bestätigt'\n"
-            "Erfinde KEINE anderen Werte.\n"
+            "- austrittsdatum: extrahiert aus Situation (Format YYYY-MM-DD, null wenn nicht gefunden)\n"
+            "- status: 'austritt_bestaetigt'\n"
+            f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
             "{\"freizuegigkeit_chf\": null, \"austrittsdatum\": \"YYYY-MM-DD\", "
             "\"status\": \"austritt_bestaetigt\"}"
@@ -790,11 +798,12 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
         koordinationsabzug = vorsorge.get("koordinationsabzug_chf")
         system_prompt = (
             "Du bist die neue Pensionskasse. Antworte NUR mit JSON.\n"
+            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
             "Verwende AUSSCHLIESSLICH diese Daten:\n"
-            "- eintrittsdatum: extrahiert aus Situation\n"
+            "- eintrittsdatum: extrahiert aus Situation (Format YYYY-MM-DD, null wenn nicht gefunden)\n"
             f"- bvg_koordinationsabzug: {koordinationsabzug} (null wenn nicht verfügbar)\n"
             "- bvg_pflicht: true (immer)\n"
-            "Erfinde KEINE anderen Werte.\n"
+            f"{anti_hallucination}\n"
             "Antworte NUR mit exakt diesem JSON-Format (bvg_pflicht muss true sein): "
             "{\"eintrittsdatum\": \"YYYY-MM-DD\", "
             "\"bvg_koordinationsabzug\": null, \"bvg_pflicht\": true}"
@@ -802,6 +811,8 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
     else:  # AVS
         system_prompt = (
             "Du bist die AHV/AVS.\n"
+            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
+            f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
             "{\"ik_auszug_verfuegbar\": true, \"beitragsjahre\": null}"
         )
@@ -857,45 +868,44 @@ def _extract_doc_info(uploaded_files: list) -> dict:
     Returns a dict of extracted fields, or {} if nothing could be extracted.
     """
     import base64
+    import io
+    import sys
     import anthropic
+    import pypdf  # type: ignore[import]
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     content_parts: list[dict] = []
 
     for f in uploaded_files:
-        file_bytes = f.read()
-        file_ext   = f.name.lower().rsplit(".", 1)[-1]
+        file_ext = f.name.lower().rsplit(".", 1)[-1]
 
         if file_ext == "pdf":
-            # Try pypdf text extraction first
-            text_extracted = ""
             try:
-                import io
-                import pypdf  # type: ignore[import]
-                reader = pypdf.PdfReader(io.BytesIO(file_bytes))
-                text_extracted = "\n".join(
-                    page.extract_text() or "" for page in reader.pages
-                )
-            except Exception:
-                pass
+                f.seek(0)
+                pdf_bytes = f.read()
+                print(f"[extract] PDF bytes read: {len(pdf_bytes)}", file=sys.stderr)
+                reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+                text_extracted = ""
+                for page in reader.pages:
+                    text_extracted += page.extract_text() or ""
+                print(f"[extract] text_extracted length: {len(text_extracted)}", file=sys.stderr)
+                print(f"[extract] text_extracted preview: {text_extracted[:200]}", file=sys.stderr)
+                if not text_extracted.strip():
+                    print(f"[extract] PDF '{f.name}' yielded no text — skipping", file=sys.stderr)
+                    continue
+            except Exception as e:
+                print(f"[extract] PDF read error: {e}", file=sys.stderr)
+                continue
 
-            if text_extracted.strip():
-                content_parts.append({
-                    "type": "text",
-                    "text": f"Dokument '{f.name}':\n{text_extracted[:4000]}",
-                })
-            else:
-                # pypdf unavailable or empty — inform model
-                content_parts.append({
-                    "type": "text",
-                    "text": (
-                        f"[PDF '{f.name}' konnte nicht als Text extrahiert werden. "
-                        "Bitte installieren Sie pypdf für bessere PDF-Unterstützung.]"
-                    ),
-                })
+            content_parts.append({
+                "type": "text",
+                "text": f"Dokument '{f.name}':\n{text_extracted[:4000]}",
+            })
         else:
             # Image — send as base64 vision block
+            f.seek(0)
+            file_bytes = f.read()
             media_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}
             media_type = media_map.get(file_ext, "image/png")
             b64 = base64.b64encode(file_bytes).decode()
@@ -929,7 +939,10 @@ def _extract_doc_info(uploaded_files: list) -> dict:
         "- \"eintrittsdatum\": Eintrittsdatum (Text)\n"
         "- \"email\": E-Mail der Institution\n"
         "- \"telefon\": Telefon der Institution\n"
-        "Antworte NUR mit validem JSON. Fehlende Felder weglassen. "
+        "Extrahiere NUR Werte, die explizit im Dokument vorhanden sind. "
+        "Wenn ein Wert nicht gefunden wird, gib null zurück. "
+        "Erfinde oder extrapoliere keine fehlenden Angaben. "
+        "Antworte NUR mit validem JSON. "
         "Zahlen als Zahl (nicht als String). Keine Erklärungen."
     )
 
@@ -940,13 +953,15 @@ def _extract_doc_info(uploaded_files: list) -> dict:
             system=system_prompt,
             messages=[{"role": "user", "content": content_parts}],
         )
-        raw = msg.content[0].text.strip()
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        return json.loads(raw.strip())
-    except Exception:
+        raw_response = msg.content[0].text.strip()
+        print(f"[extract] raw LLM response: {raw_response}", file=sys.stderr)
+        # Strip ``` fences robustly
+        raw = raw_response.replace("```json", "").replace("```", "").strip()
+        result = json.loads(raw)
+        print(f"[extract] parsed result: {result}", file=sys.stderr)
+        return result
+    except Exception as _exc:
+        print(f"[extract] ERROR: {_exc}", file=sys.stderr)
         return {}
 
 
@@ -1107,29 +1122,12 @@ def _vs_step_1_situation() -> None:
             if _use_llm():
                 with st.spinner("Dokument wird analysiert…"):
                     extracted = _extract_doc_info(list(uploaded_files))
-                if extracted:
+                if extracted is not None:
                     st.session_state.extracted_doc_data = extracted
                     # Save extracted PDF data to case_state.json
                     _case = _load_case()
                     _case["vorsorge_ausweis"] = extracted
                     _save_case(_case)
-                    # Pre-fill situation text area if still empty
-                    if not st.session_state.raw_input.strip():
-                        _label_map = {
-                            "name":               "Name",
-                            "ahv_nummer":         "AHV-Nummer",
-                            "pensionskasse":      "Pensionskasse",
-                            "freizuegigkeit_chf": "Freizügigkeitsguthaben (CHF)",
-                            "austrittsdatum":     "Austrittsdatum",
-                            "eintrittsdatum":     "Eintrittsdatum",
-                            "email":              "E-Mail Institution",
-                            "telefon":            "Telefon Institution",
-                        }
-                        lines = [
-                            f"{_label_map.get(k, k.replace('_', ' ').title())}: {v}"
-                            for k, v in extracted.items()
-                        ]
-                        st.session_state.raw_input = "\n".join(lines)
                     st.rerun()
             else:
                 st.info("LLM-Extraktion erfordert einen ANTHROPIC_API_KEY.")
@@ -1511,7 +1509,7 @@ def _vs_step_4_koordination() -> None:
         and actor not in st.session_state.responses_done
     ]
 
-    auto_sim_enabled = st.session_state.get("auto_sim_enabled", True)
+    auto_sim_enabled = st.session_state.get("auto_sim_enabled", False)
 
     if waiting and auto_sim_enabled and elapsed >= AUTO_SIM_DELAY:
         # Trigger auto-simulation for all remaining waiting actors

@@ -1,52 +1,46 @@
 {
-  "case_id": "20AA7E74",
-  "user_name": "Christopher Alvaro",
+  "case_id": "718190B2",
+  "user_name": "chrisstopher Alvaro",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur Zürich Versicherung AG. Mein letzter Arbeitstag bei Swisscom ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt übertragen wird und alle notwendigen Schritte eingeleitet werden.",
+  "situation": "Name: Alvaro, Christopher\nAHV-Nummer: 756.4521.8834.97\nPensionskasse: Pensionskasse Migros, Limmatstrasse 152, 8031 Zürich\nFreizügigkeitsguthaben (CHF): 45200.0\nAustrittsdatum: 31. März 2026\nEintrittsdatum: 1. März 2022\nE-Mail Institution: pk@migros.ch\nTelefon Institution: +41 44 277 20 20\n\nje change le job pour le 30 mars.",
   "structured_context": {
-    "use_case": "AUTRE",
+    "use_case": "STELLENWECHSEL",
     "actors_involved": [
       "OLD_PK",
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "Ich wechsle meinen Job per 1. Mai 2026 von der Swisscom AG zur Zürich Versicherung AG. Mein letzter Arbeitstag bei Swisscom ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassengu",
-    "missing_info": [
-      "Strukturierung fehlgeschlagen — manuelle Überprüfung erforderlich"
-    ]
+    "user_summary": "Alvaro wechselt am 30. März den Job und hat ein Freizügigkeitsguthaben von CHF 45'200 bei der Pensionskasse Migros. Das Austrittsdatum ist auf den 31. März 2026 gesetzt.",
+    "missing_info": []
   },
   "activated_actors": [
-    "OLD_PK",
-    "NEW_PK"
+    "NEW_PK",
+    "OLD_PK"
   ],
   "requests": {
-    "OLD_PK": {
-      "sent_at": 1775423869.523702,
+    "NEW_PK": {
+      "sent_at": 1775736943.7066472,
       "payload": {
-        "use_case": "AUTRE"
+        "use_case": "STELLENWECHSEL"
       }
     },
-    "NEW_PK": {
-      "sent_at": 1775423869.523702,
+    "OLD_PK": {
+      "sent_at": 1775736943.7066472,
       "payload": {
-        "use_case": "AUTRE"
+        "use_case": "STELLENWECHSEL"
       }
     }
   },
   "institution_responses": {
     "OLD_PK": {
-      "OLD_PK": {
-        "freizuegigkeit_chf": 285000,
-        "austrittsdatum": "2026-04-30",
-        "status": "austritt_bestaetigt"
-      }
+      "freizuegigkeit_chf": 45200.0,
+      "austrittsdatum": "2026-03-31",
+      "status": "austritt_bestaetigt"
     },
     "NEW_PK": {
-      "NEW_PK": {
-        "eintrittsdatum": "2026-05-01",
-        "bvg_koordinationsabzug": 25725,
-        "bvg_pflicht": true
-      }
+      "eintrittsdatum": "2022-03-01",
+      "bvg_koordinationsabzug": null,
+      "bvg_pflicht": true
     }
   },
   "institution_responded": {
@@ -60,7 +54,7 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-05T23:15:26",
+  "created_at": "2026-04-09T14:12:49",
   "follow_up_requests": {},
   "follow_up_questions": {},
   "institution_clarification_requests": {},
@@ -70,7 +64,7 @@
     "NEW_PK": "info.helvevista@gmail.com"
   },
   "institution_response_date": {
-    "OLD_PK": "2026-04-05T23:18:00",
-    "NEW_PK": "2026-04-05T23:18:02"
+    "OLD_PK": "2026-04-09T14:13:19",
+    "NEW_PK": "2026-04-09T14:13:21"
   }
 }
