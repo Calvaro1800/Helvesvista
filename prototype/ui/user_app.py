@@ -1232,10 +1232,13 @@ def _vs_step_1_situation() -> None:
             st.warning("Bitte beschreiben Sie zuerst Ihre Situation.")
         else:
             st.session_state.raw_input = raw.strip()
-            # Load from file first so vorsorge_ausweis (set by PDF extraction) is not lost
-            case = _load_case() or st.session_state.case
+            existing = _load_case() or {}
+            case = st.session_state.case
             case["situation"] = raw.strip()
-            st.session_state.case = case  # Keep session state in sync
+            # Preserve vorsorge_ausweis from existing file if present
+            if not case.get("vorsorge_ausweis") and existing.get("vorsorge_ausweis"):
+                case["vorsorge_ausweis"] = existing["vorsorge_ausweis"]
+            st.session_state.case = case
             _save_case(case)
             _vs_go(2)
             st.rerun()
@@ -1268,12 +1271,15 @@ def _vs_step_2_analyse() -> None:
         st.session_state.structured_ctx = ctx
 
         # Persist structured context (without non-serialisable enum objects)
+        existing = _load_case() or {}
         case = st.session_state.case
         case["structured_context"] = {
             k: v
             for k, v in ctx.items()
             if k != "actors_enum"
         }
+        if not case.get("vorsorge_ausweis") and existing.get("vorsorge_ausweis"):
+            case["vorsorge_ausweis"] = existing["vorsorge_ausweis"]
         _save_case(case)
 
     ctx = st.session_state.structured_ctx
@@ -1405,8 +1411,11 @@ def _vs_step_3_akteure() -> None:
             case = st.session_state.case
             case["activated_actors"] = [a.value for a in chosen]
             # Read institution emails from case_state.json (already saved by widget handler)
-            saved_case = _load_case()
+            saved_case = _load_case() or {}
             case["institution_emails"] = saved_case.get("institution_emails", {})
+            # Preserve vorsorge_ausweis from existing file if present
+            if not case.get("vorsorge_ausweis") and saved_case.get("vorsorge_ausweis"):
+                case["vorsorge_ausweis"] = saved_case["vorsorge_ausweis"]
             _save_case(case)
             _vs_go(4)
             st.rerun()
