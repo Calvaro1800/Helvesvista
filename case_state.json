@@ -1,8 +1,8 @@
 {
-  "case_id": "718190B2",
-  "user_name": "chrisstopher Alvaro",
+  "case_id": "97382A59",
+  "user_name": "Laura Zimmermann",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "Name: Alvaro, Christopher\nAHV-Nummer: 756.4521.8834.97\nPensionskasse: Pensionskasse Migros, Limmatstrasse 152, 8031 Zürich\nFreizügigkeitsguthaben (CHF): 45200.0\nAustrittsdatum: 31. März 2026\nEintrittsdatum: 1. März 2022\nE-Mail Institution: pk@migros.ch\nTelefon Institution: +41 44 277 20 20\n\nje change le job pour le 30 mars.",
+  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG in Zürich zur Novartis AG in Basel. Mein letzter Arbeitstag bei Migros ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt von der Migros-Pensionskasse zur Novartis Pensionskasse übertragen wird und alle notwendigen administrativen Schritte eingeleitet werden.",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
@@ -10,7 +10,7 @@
       "NEW_PK"
     ],
     "avs_required": false,
-    "user_summary": "Alvaro wechselt am 30. März den Job und hat ein Freizügigkeitsguthaben von CHF 45'200 bei der Pensionskasse Migros. Das Austrittsdatum ist auf den 31. März 2026 gesetzt.",
+    "user_summary": "Sie wechseln am 1. Mai 2026 von der Migros AG in Zürich zur Novartis AG in Basel und möchten sicherstellen, dass Ihr Pensionskassenguthaben korrekt übertragen wird und alle administrativen Schritte eingeleitet werden.",
     "missing_info": []
   },
   "activated_actors": [
@@ -19,13 +19,13 @@
   ],
   "requests": {
     "NEW_PK": {
-      "sent_at": 1775736943.7066472,
+      "sent_at": 1776000850.181966,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
     "OLD_PK": {
-      "sent_at": 1775736943.7066472,
+      "sent_at": 1776000850.181966,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -33,13 +33,13 @@
   },
   "institution_responses": {
     "OLD_PK": {
-      "freizuegigkeit_chf": 45200.0,
-      "austrittsdatum": "2026-03-31",
+      "freizuegigkeit_chf": 54800,
+      "austrittsdatum": "2026-04-30",
       "status": "austritt_bestaetigt"
     },
     "NEW_PK": {
-      "eintrittsdatum": "2022-03-01",
-      "bvg_koordinationsabzug": null,
+      "eintrittsdatum": "2026-05-01",
+      "bvg_koordinationsabzug": 26460,
       "bvg_pflicht": true
     }
   },
@@ -54,17 +54,28 @@
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-09T14:12:49",
+  "created_at": "2026-04-12T15:33:01",
   "follow_up_requests": {},
   "follow_up_questions": {},
   "institution_clarification_requests": {},
   "user_clarification_responses": {},
+  "vorsorge_ausweis": {
+    "name": "Zimmermann, Laura",
+    "ahv_nummer": "756.4832.1196.43",
+    "pensionskasse": "Migros-Pensionskasse MPK\nLimmatstrasse 152, 8031 Zürich",
+    "freizuegigkeit_chf": 54800,
+    "koordinationsabzug_chf": 26460,
+    "austrittsdatum": "30. April 2026",
+    "eintrittsdatum": "01. März 2019",
+    "email": "info@mpk.ch",
+    "telefon": "+41 44 277 70 00"
+  },
   "institution_emails": {
     "OLD_PK": "info.helvevista@gmail.com",
     "NEW_PK": "info.helvevista@gmail.com"
   },
   "institution_response_date": {
-    "OLD_PK": "2026-04-09T14:13:19",
-    "NEW_PK": "2026-04-09T14:13:21"
+    "OLD_PK": "2026-04-12T15:34:22",
+    "NEW_PK": "2026-04-12T15:34:24"
   }
 }
