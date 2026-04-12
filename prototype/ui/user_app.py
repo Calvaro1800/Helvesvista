@@ -813,6 +813,9 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
         vorsorge.get("koordinationsabzug_chf")
         or vorsorge.get("bvg_koordinationsabzug")
     )
+    print(f"[simulate] freizueg_val: {freizueg_val}", flush=True)
+    print(f"[simulate] koord_val: {koord_val}", flush=True)
+    print(f"[simulate] vorsorge keys: {list(vorsorge.keys())}", flush=True)
 
     data_summary = (
         f"SITUATION DES VERSICHERTEN:\n{situation}\n\n"
@@ -837,7 +840,8 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
             "Du bist die alte Pensionskasse. Lies die Situationsdaten sorgfältig.\n"
             f"{data_summary}\n"
             "Extrahiere Austrittsdatum aus dem Situationstext wenn nicht im Vorsorgeausweis.\n"
-            f"Verwende freizuegigkeit_chf EXAKT aus den Vorsorgeausweis-Daten wenn vorhanden ({freizueg_val}).\n"
+            f"Der exakte Wert für freizuegigkeit_chf laut Vorsorgeausweis ist: {freizueg_val}\n"
+            f"Gib diesen Wert EXAKT als Integer zurück. Kein null, kein anderer Wert.\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
             "{\"freizuegigkeit_chf\": <Wert oder null>, "
@@ -849,7 +853,8 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
             "Du bist die neue Pensionskasse. Lies die Situationsdaten sorgfältig.\n"
             f"{data_summary}\n"
             "Extrahiere Eintrittsdatum aus dem Situationstext wenn nicht im Vorsorgeausweis.\n"
-            f"Verwende bvg_koordinationsabzug EXAKT aus den Vorsorgeausweis-Daten wenn vorhanden ({koord_val}).\n"
+            f"Der exakte Wert für bvg_koordinationsabzug laut Vorsorgeausweis ist: {koord_val}\n"
+            f"Gib diesen Wert EXAKT als Integer zurück. Kein null, kein anderer Wert.\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit exakt diesem JSON-Format (bvg_pflicht muss true sein): "
             "{\"eintrittsdatum\": \"YYYY-MM-DD\", "
@@ -1813,6 +1818,9 @@ def _vs_step_5_ergebnis() -> None:
 
     # Load institution responses from JSON (may include manual responses)
     case      = _load_case()
+    print(f"[step5] vorsorge keys: {list(case.get('vorsorge_ausweis', {}).keys())}", flush=True)
+    print(f"[step5] freizueg from vorsorge: {case.get('vorsorge_ausweis', {}).get('freizuegigkeit_chf')}", flush=True)
+    print(f"[step5] OLD_PK response: {case.get('institution_responses', {}).get('OLD_PK', {})}", flush=True)
     inst_resp = case.get("institution_responses", {})
     vorsorge  = case.get("vorsorge_ausweis", {})  # PDF-extracted data as fallback
     # Normalize: unwrap actor-keyed nesting if LLM returned {actor_key: {...}} format
@@ -1937,7 +1945,9 @@ def _vs_step_5_ergebnis() -> None:
                 if "raw_reply" in resp:
                     st.info(resp["raw_reply"])
                 elif actor == Actor.OLD_PK:
-                    # Fallback to vorsorge_ausweis if institution response lacks value
+                    case = _load_case()
+                    inst_resp = case.get("institution_responses", {})
+                    vorsorge = case.get("vorsorge_ausweis", {})
                     chf = (
                         resp.get("freizuegigkeit_chf")
                         or vorsorge.get("freizuegigkeit_chf")
