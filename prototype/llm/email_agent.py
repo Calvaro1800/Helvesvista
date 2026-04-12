@@ -165,11 +165,13 @@ Im Auftrag von {user_name} wenden wir uns mit folgendem Anliegen an Sie.
 
 """ + _PROFILE_CARD + """\
 {user_name} hat einen Stellenwechsel vollzogen und benötigt zur Überprüfung \
-der Vorsorgesituation einen aktuellen IK-Auszug (Individuelle Kontenauszug).
+der Vorsorgesituation einen aktuellen IK-Auszug (Individuelles Konto).
 
 Wir bitten Sie um folgende Informationen:
-  • Aktueller IK-Auszug mit AHV-Beitragsjahren
-  • Nachweis allfälliger Beitragslücken
+  • IK-Auszug (Individuelles Konto) der versicherten Person
+  • Anzahl Beitragsjahre (kumuliert bis heute)
+  • Allfällige Beitragslücken (Jahre und Gründe, falls bekannt)
+  • AHV-Nummer des/der Versicherten zur eindeutigen Identifikation
 """ + _REPLY_OPTIONS + """
 Mit freundlichen Grüssen
 HelveVista Koordinationsstelle
@@ -197,7 +199,8 @@ Antworte NUR als JSON:
 status (str)
 - NEW_PK: eintrittsdatum (str DD.MM.YYYY), \
 bvg_koordinationsabzug (int), bvg_pflicht (bool)
-- AVS: ik_auszug (str), beitragsjahre (int), luecken (int)
+- AVS: ik_auszug_verfuegbar (bool), ahv_nummer (str), \
+beitragsjahre (int), luecken (int), status (str)
 Nur JSON, kein Text.\
 """
 

@@ -857,11 +857,21 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
         )
     else:  # AVS
         system_prompt = (
-            "Du bist die AHV/AVS.\n"
+            "Du bist die AHV-Ausgleichskasse. Lies die Situationsdaten sorgfältig.\n"
             f"{data_summary}\n"
+            "\nExtrahiere aus dem Situationstext:\n"
+            "- Geburtsdatum des Versicherten (falls vorhanden)\n"
+            "- AHV-Nummer (falls im Vorsorgeausweis vorhanden)\n"
+            "\nBerechne die Beitragsjahre basierend auf dem Eintrittsdatum\n"
+            "der ersten Anstellung (falls bekannt) bis heute (2026).\n"
+            "\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
-            "{\"ik_auszug_verfuegbar\": true, \"beitragsjahre\": null}"
+            "{\"ik_auszug_verfuegbar\": true, "
+            "\"ahv_nummer\": \"<aus Vorsorgeausweis oder null>\", "
+            "\"beitragsjahre\": <Zahl oder null>, "
+            "\"luecken\": 0, "
+            "\"status\": \"IK-Auszug bereitgestellt\"}"
         )
 
     user_msg = (
@@ -1822,6 +1832,7 @@ def _vs_step_5_ergebnis() -> None:
                 _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
                 _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
                 _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
+                _avs    = inst_resp.get(Actor.AVS.value, {})
                 # Prefer institution response values; fall back to vorsorge_ausweis
                 _freizuegigkeit_chf = (
                     _old_pk.get("freizuegigkeit_chf")
@@ -1836,8 +1847,14 @@ def _vs_step_5_ergebnis() -> None:
                     or vorsorge.get("koordinationsabzug_chf")
                     or vorsorge.get("bvg_koordinationsabzug")
                 )
-                _bvg_pflicht = _new_pk.get("bvg_pflicht")
-                _user_name   = case.get("user_name", "—")
+                _bvg_pflicht    = _new_pk.get("bvg_pflicht")
+                _beitragsjahre  = _avs.get("beitragsjahre")
+                _avs_status     = _avs.get("status")
+                _user_name      = case.get("user_name", "—")
+                avs_line = (
+                    f"- AHV-Beitragsjahre: {_beitragsjahre or 'nicht angegeben'}"
+                    if _avs else ""
+                )
                 _user_msg = (
                     f"Name des Versicherten: {_user_name}\n\n"
                     f"Originale Situation: {case.get('situation', '—')}\n\n"
@@ -1849,6 +1866,12 @@ def _vs_step_5_ergebnis() -> None:
                     f"  - eintrittsdatum: {_eintrittsdatum}\n"
                     f"  - bvg_koordinationsabzug: {_bvg_koord}\n"
                     f"  - bvg_pflicht: {_bvg_pflicht}"
+                    + (
+                        f"\n\nAntwort AHV-Ausgleichskasse:\n"
+                        f"  - beitragsjahre: {_beitragsjahre}\n"
+                        f"  - status: {_avs_status}"
+                        if _avs else ""
+                    )
                 )
                 _resp = _client.messages.create(
                     model="claude-sonnet-4-20250514",
@@ -1861,7 +1884,8 @@ def _vs_step_5_ergebnis() -> None:
                         f"- Austrittsdatum: {_austrittsdatum or 'nicht angegeben'}\n"
                         f"- Eintrittsdatum: {_eintrittsdatum or 'nicht angegeben'}\n"
                         f"- BVG-Koordinationsabzug: {_bvg_koord or 'nicht angegeben'}\n"
-                        "Wenn ein Wert 'nicht angegeben' ist, erwähne ihn NICHT. "
+                        + (f"{avs_line}\n" if avs_line else "")
+                        + "Wenn ein Wert 'nicht angegeben' ist, erwähne ihn NICHT. "
                         "Schreibe in der Du-Form, professionell und klar."
                     ),
                     messages=[{"role": "user", "content": _user_msg}],
@@ -1935,17 +1959,19 @@ def _vs_step_5_ergebnis() -> None:
                     st.markdown(f"BVG-Pflicht: **{pflicht}**")
 
                 elif actor == Actor.AVS:
-                    st.markdown(f"IK-Auszug: **{_fmt_str(resp.get('ik_auszug'))}**")
-                    bj = resp.get("beitragsjahre")
-                    st.markdown(f"Beitragsjahre: **{_fmt_str(bj) if bj is None else bj}**")
+                    ik_ok = resp.get("ik_auszug_verfuegbar") or (resp.get("ik_auszug") == "verfügbar")
+                    st.markdown(f"IK-Auszug verfügbar: **{'Ja' if ik_ok else 'Nein'}**")
+                    ahv = resp.get("ahv_nummer") or vorsorge.get("ahv_nummer")
+                    if ahv:
+                        st.markdown(f"AHV-Nummer: **{ahv}**")
+                    jahre = resp.get("beitragsjahre")
+                    st.markdown(f"Beitragsjahre: **{_fmt_str(jahre)}**")
                     luecken = resp.get("luecken")
-                    if luecken is None:
-                        luecken_label = "nicht angegeben"
-                    elif luecken == 0:
-                        luecken_label = "keine"
-                    else:
-                        luecken_label = str(luecken)
-                    st.markdown(f"Lücken: **{luecken_label}**")
+                    if luecken is not None:
+                        st.markdown(f"Beitragslücken: **{luecken}**")
+                    status_avs = resp.get("status")
+                    if status_avs:
+                        st.markdown(f"Status: **{status_avs}**")
 
             elif state == ActorState.ESCALATED:
                 st.caption("Keine gültige Antwort erhalten — Eskalation ist erforderlich.")
@@ -2003,14 +2029,20 @@ def _vs_step_5_ergebnis() -> None:
                 doc_name = "Eingangsbestätigung"
 
             else:  # AVS
-                jahre   = resp.get("beitragsjahre", "—")
-                luecken = resp.get("luecken", 0)
-                luecken_text = "ohne Lücken" if luecken == 0 else f"mit {luecken} Lückenjahr(en)"
-                explanation = (
-                    f"Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
-                    f"Sie haben **{jahre}** Beitragsjahre {luecken_text}. "
-                    f"Dieser Auszug ist wichtig für Ihre spätere Rentenberechnung."
-                )
+                jahre  = resp.get("beitragsjahre")
+                if jahre:
+                    explanation = (
+                        f"Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
+                        f"Sie verfügen über {jahre} Beitragsjahre. "
+                        f"Dieser Auszug ist massgebend für die Berechnung Ihrer "
+                        f"künftigen AHV-Rente."
+                    )
+                else:
+                    explanation = (
+                        "Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
+                        "Dieser Auszug dokumentiert Ihre bisherigen AHV-Beitragsjahre "
+                        "und ist massgebend für Ihre künftige Rentenberechnung."
+                    )
                 doc_name = "IK-Auszug"
 
             st.markdown(
