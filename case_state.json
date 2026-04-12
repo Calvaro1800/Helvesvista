@@ -1,31 +1,39 @@
 {
-  "case_id": "97382A59",
-  "user_name": "Laura Zimmermann",
+  "case_id": "AE20C98A",
+  "user_name": "Michael Brunner",
   "user_email": "christopheralvaro.o@gmail.com",
-  "situation": "Ich wechsle meinen Job per 1. Mai 2026 von der Migros AG in Zürich zur Novartis AG in Basel. Mein letzter Arbeitstag bei Migros ist der 30. April 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt von der Migros-Pensionskasse zur Novartis Pensionskasse übertragen wird und alle notwendigen administrativen Schritte eingeleitet werden.",
+  "situation": "Ich heisse Michael Brunner und wechsle meine Stelle per 1. Juni 2026. Ich verlasse die UBS AG in Zürich, wo ich seit dem 1. März 2015 als Senior IT-Spezialist tätig war, und trete eine neue Stelle als Lead Engineer bei der Swiss Re AG in Zürich an. Mein letzter Arbeitstag bei der UBS ist der 31. Mai 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt von der UBS Pensionskasse zur Swiss Re Pensionskasse übertragen wird. Zudem benötige ich meinen aktuellen IK-Auszug der AHV-Ausgleichskasse, da ich meine Vorsorgesituation vollständig überprüfen möchte.",
   "structured_context": {
     "use_case": "STELLENWECHSEL",
     "actors_involved": [
       "OLD_PK",
-      "NEW_PK"
+      "NEW_PK",
+      "AVS"
     ],
-    "avs_required": false,
-    "user_summary": "Sie wechseln am 1. Mai 2026 von der Migros AG in Zürich zur Novartis AG in Basel und möchten sicherstellen, dass Ihr Pensionskassenguthaben korrekt übertragen wird und alle administrativen Schritte eingeleitet werden.",
+    "avs_required": true,
+    "user_summary": "Michael Brunner wechselt per 1. Juni 2026 von der UBS AG zur Swiss Re AG und möchte sein Pensionskassenguthaben korrekt übertragen lassen. Zusätzlich benötigt er seinen IK-Auszug der AHV für eine vollständige Überprüfung seiner Vorsorgesituation.",
     "missing_info": []
   },
   "activated_actors": [
     "NEW_PK",
-    "OLD_PK"
+    "OLD_PK",
+    "AVS"
   ],
   "requests": {
     "NEW_PK": {
-      "sent_at": 1776000850.181966,
+      "sent_at": 1776001897.795276,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
     },
     "OLD_PK": {
-      "sent_at": 1776000850.181966,
+      "sent_at": 1776001897.795276,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    },
+    "AVS": {
+      "sent_at": 1776001897.795276,
       "payload": {
         "use_case": "STELLENWECHSEL"
       }
@@ -33,49 +41,48 @@
   },
   "institution_responses": {
     "OLD_PK": {
-      "freizuegigkeit_chf": 54800,
-      "austrittsdatum": "2026-04-30",
+      "freizuegigkeit_chf": null,
+      "austrittsdatum": "2026-05-31",
       "status": "austritt_bestaetigt"
     },
     "NEW_PK": {
-      "eintrittsdatum": "2026-05-01",
-      "bvg_koordinationsabzug": 26460,
+      "eintrittsdatum": "2026-06-01",
+      "bvg_koordinationsabzug": null,
       "bvg_pflicht": true
+    },
+    "AVS": {
+      "ik_auszug_verfuegbar": true,
+      "ahv_nummer": null,
+      "beitragsjahre": 11,
+      "luecken": 0,
+      "status": "IK-Auszug bereitgestellt"
     }
   },
   "institution_responded": {
     "OLD_PK": true,
-    "NEW_PK": true
+    "NEW_PK": true,
+    "AVS": true
   },
   "actor_states": {
     "OLD_PK": "COMPLETED",
     "NEW_PK": "COMPLETED",
-    "AVS": "SKIPPED"
+    "AVS": "COMPLETED"
   },
   "orchestrator_state": "USER_VALIDATION",
   "final_decision": null,
-  "created_at": "2026-04-12T15:33:01",
+  "created_at": "2026-04-12T15:50:30",
   "follow_up_requests": {},
   "follow_up_questions": {},
   "institution_clarification_requests": {},
   "user_clarification_responses": {},
-  "vorsorge_ausweis": {
-    "name": "Zimmermann, Laura",
-    "ahv_nummer": "756.4832.1196.43",
-    "pensionskasse": "Migros-Pensionskasse MPK\nLimmatstrasse 152, 8031 Zürich",
-    "freizuegigkeit_chf": 54800,
-    "koordinationsabzug_chf": 26460,
-    "austrittsdatum": "30. April 2026",
-    "eintrittsdatum": "01. März 2019",
-    "email": "info@mpk.ch",
-    "telefon": "+41 44 277 70 00"
-  },
   "institution_emails": {
     "OLD_PK": "info.helvevista@gmail.com",
-    "NEW_PK": "info.helvevista@gmail.com"
+    "NEW_PK": "info.helvevista@gmail.com",
+    "AVS": "info.helvevista@gmail.com"
   },
   "institution_response_date": {
-    "OLD_PK": "2026-04-12T15:34:22",
-    "NEW_PK": "2026-04-12T15:34:24"
+    "OLD_PK": "2026-04-12T15:51:49",
+    "NEW_PK": "2026-04-12T15:51:51",
+    "AVS": "2026-04-12T15:51:53"
   }
 }
