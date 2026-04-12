@@ -813,9 +813,7 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
         vorsorge.get("koordinationsabzug_chf")
         or vorsorge.get("bvg_koordinationsabzug")
     )
-    print(f"[simulate] freizueg_val: {freizueg_val}", flush=True)
-    print(f"[simulate] koord_val: {koord_val}", flush=True)
-    print(f"[simulate] vorsorge keys: {list(vorsorge.keys())}", flush=True)
+
 
     data_summary = (
         f"SITUATION DES VERSICHERTEN:\n{situation}\n\n"
@@ -949,25 +947,17 @@ def _extract_doc_info(uploaded_files: list) -> dict:
 
         if file_ext == "pdf":
             if not _PYPDF_OK:
-                print(f"[extract] Skipping PDF '{f.name}': pypdf not available", file=sys.stderr)
                 continue
             try:
                 f.seek(0)
                 pdf_bytes = f.read()
-                print(f"[PDF] file name: {f.name}", flush=True)
-                print(f"[PDF] bytes read: {len(pdf_bytes)}", flush=True)
-                print(f"[extract] PDF bytes read: {len(pdf_bytes)}", file=sys.stderr)
                 reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
                 text_extracted = ""
                 for page in reader.pages:
                     text_extracted += page.extract_text() or ""
-                print(f"[extract] text_extracted length: {len(text_extracted)}", file=sys.stderr)
-                print(f"[extract] text_extracted preview: {text_extracted[:200]}", file=sys.stderr)
                 if not text_extracted.strip():
-                    print(f"[extract] PDF '{f.name}' yielded no text — skipping", file=sys.stderr)
                     continue
             except Exception as e:
-                print(f"[extract] PDF read error: {e}", file=sys.stderr)
                 continue
 
             content_parts.append({
@@ -1026,16 +1016,11 @@ def _extract_doc_info(uploaded_files: list) -> dict:
             messages=[{"role": "user", "content": content_parts}],
         )
         raw_response = msg.content[0].text.strip()
-        print(f"[PDF] LLM raw response: {raw_response[:300]}", flush=True)
-        print(f"[extract] raw LLM response: {raw_response}", file=sys.stderr)
         # Strip ``` fences robustly
         raw = raw_response.replace("```json", "").replace("```", "").strip()
         result = json.loads(raw)
-        print(f"[PDF] parsed result: {result}", flush=True)
-        print(f"[extract] parsed result: {result}", file=sys.stderr)
         return result
     except Exception as _exc:
-        print(f"[extract] ERROR: {_exc}", file=sys.stderr)
         return {}
 
 
@@ -1827,9 +1812,6 @@ def _vs_step_5_ergebnis() -> None:
 
     # Load institution responses from JSON (may include manual responses)
     case      = _load_case()
-    print(f"[step5] vorsorge keys: {list(case.get('vorsorge_ausweis', {}).keys())}", flush=True)
-    print(f"[step5] freizueg from vorsorge: {case.get('vorsorge_ausweis', {}).get('freizuegigkeit_chf')}", flush=True)
-    print(f"[step5] OLD_PK response: {case.get('institution_responses', {}).get('OLD_PK', {})}", flush=True)
     inst_resp = case.get("institution_responses", {})
     vorsorge  = case.get("vorsorge_ausweis", {})  # PDF-extracted data as fallback
     # Normalize: unwrap actor-keyed nesting if LLM returned {actor_key: {...}} format
