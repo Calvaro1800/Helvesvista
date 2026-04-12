@@ -571,18 +571,51 @@ def _badge(label: str, kind: str) -> str:
 
 
 def _fmt_chf(v: object) -> str:
-    if v is None:
+    if v is None or str(v) in ("None", "null", ""):
         return "nicht angegeben"
-    if isinstance(v, (int, float)):
-        return f"CHF {v:,.0f}".replace(",", "'")
-    return str(v)
+    try:
+        n = int(float(str(v)))
+        return f"CHF {n:,}".replace(",", "'")
+    except (ValueError, TypeError):
+        return str(v)
 
 
 def _fmt_str(v: object) -> str:
-    """Return 'nicht angegeben' if value is None, else str(v)."""
-    if v is None:
+    """Return 'nicht angegeben' if value is None/'None'/'null', else str(v)."""
+    if v is None or str(v) in ("None", "null", ""):
         return "nicht angegeben"
     return str(v)
+
+
+def _fmt_date(d: object) -> str:
+    """Format ISO date (YYYY-MM-DD) or German date string for display."""
+    if d is None or str(d) in ("None", "null", ""):
+        return "nicht angegeben"
+    s = str(d)
+    try:
+        from datetime import datetime as _dt
+        dt = _dt.strptime(s, "%Y-%m-%d")
+        months = [
+            "Januar", "Februar", "März", "April", "Mai", "Juni",
+            "Juli", "August", "September", "Oktober", "November", "Dezember",
+        ]
+        return f"{dt.day}. {months[dt.month - 1]} {dt.year}"
+    except (ValueError, TypeError):
+        return s  # Already in German format or unrecognised — return as-is
+
+
+def _fmt_status(s: object) -> str:
+    """Translate internal status keys to German display strings."""
+    mapping = {
+        "austritt_bestaetigt": "Austritt bestätigt",
+        "austritt_confirmed":  "Austritt bestätigt",
+        "confirmed":           "Bestätigt",
+        "pending":             "Ausstehend",
+        "Austritt bestätigt":  "Austritt bestätigt",
+    }
+    if s is None or str(s) in ("None", "null", ""):
+        return "nicht angegeben"
+    return mapping.get(str(s), str(s))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -763,13 +796,36 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
 
     actor_name = ACTOR_LABELS[actor]
 
-    # Load full case data — situation text is the ONLY source of truth
-    case      = _load_case()
-    situation = case.get("situation", context.get("user_summary", ""))
-    user_name = case.get("user_name", "")
-    vorsorge  = case.get("vorsorge_ausweis", {})
+    # Load full case data — situation text + vorsorge_ausweis are sources of truth
+    case           = _load_case()
+    situation      = case.get("situation", context.get("user_summary", ""))
+    user_name      = case.get("user_name", "")
+    vorsorge       = case.get("vorsorge_ausweis", {})
+    structured_ctx = case.get("structured_context", {})
 
-    vorsorge_json = json.dumps(vorsorge, ensure_ascii=False) if vorsorge else "keine Daten"
+    # Resolved field values (prefer vorsorge_ausweis, fall back to structured_context)
+    freizueg_val = (
+        vorsorge.get("freizuegigkeit_chf")
+        or vorsorge.get("gesamtguthaben_chf")
+        or vorsorge.get("altersguthaben_chf")
+    )
+    koord_val = (
+        vorsorge.get("koordinationsabzug_chf")
+        or vorsorge.get("bvg_koordinationsabzug")
+    )
+
+    data_summary = (
+        f"SITUATION DES VERSICHERTEN:\n{situation}\n\n"
+        f"DATEN AUS DEM VORSORGEAUSWEIS:\n"
+        f"- Freizügigkeitsguthaben: {freizueg_val if freizueg_val is not None else 'nicht im Dokument'}\n"
+        f"- BVG-Koordinationsabzug: {koord_val if koord_val is not None else 'nicht im Dokument'}\n"
+        f"- Austrittsdatum: {vorsorge.get('austrittsdatum') or 'aus Situationstext extrahieren'}\n"
+        f"- Eintrittsdatum: {vorsorge.get('eintrittsdatum') or 'aus Situationstext extrahieren'}\n"
+        f"- AHV-Nummer: {vorsorge.get('ahv_nummer') or 'nicht angegeben'}\n"
+        f"- Alter Arbeitgeber: {vorsorge.get('arbeitgeber') or structured_ctx.get('old_employer') or 'aus Situationstext'}\n"
+        f"- Neuer Arbeitgeber: {vorsorge.get('neuer_arbeitgeber') or structured_ctx.get('new_employer') or 'aus Situationstext'}\n"
+    )
+
     anti_hallucination = (
         "Antworte NUR auf Basis der bereitgestellten Daten. "
         "Wenn eine Information nicht vorhanden ist, antworte mit null. "
@@ -777,41 +833,32 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
     )
 
     if actor == Actor.OLD_PK:
-        gesamtguthaben = (
-            vorsorge.get("gesamtguthaben_chf")
-            or vorsorge.get("altersguthaben_chf")
-            or vorsorge.get("freizuegigkeit_chf")
-        )
         system_prompt = (
-            "Du bist die alte Pensionskasse. Antworte NUR mit JSON.\n"
-            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
-            "Verwende AUSSCHLIESSLICH diese Daten:\n"
-            f"- freizuegigkeit_chf: {gesamtguthaben} (null wenn nicht verfügbar)\n"
-            "- austrittsdatum: extrahiert aus Situation (Format YYYY-MM-DD, null wenn nicht gefunden)\n"
-            "- status: 'austritt_bestaetigt'\n"
+            "Du bist die alte Pensionskasse. Lies die Situationsdaten sorgfältig.\n"
+            f"{data_summary}\n"
+            "Extrahiere Austrittsdatum aus dem Situationstext wenn nicht im Vorsorgeausweis.\n"
+            f"Verwende freizuegigkeit_chf EXAKT aus den Vorsorgeausweis-Daten wenn vorhanden ({freizueg_val}).\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
-            "{\"freizuegigkeit_chf\": null, \"austrittsdatum\": \"YYYY-MM-DD\", "
+            "{\"freizuegigkeit_chf\": <Wert oder null>, "
+            "\"austrittsdatum\": \"YYYY-MM-DD\", "
             "\"status\": \"austritt_bestaetigt\"}"
         )
     elif actor == Actor.NEW_PK:
-        koordinationsabzug = vorsorge.get("koordinationsabzug_chf")
         system_prompt = (
-            "Du bist die neue Pensionskasse. Antworte NUR mit JSON.\n"
-            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
-            "Verwende AUSSCHLIESSLICH diese Daten:\n"
-            "- eintrittsdatum: extrahiert aus Situation (Format YYYY-MM-DD, null wenn nicht gefunden)\n"
-            f"- bvg_koordinationsabzug: {koordinationsabzug} (null wenn nicht verfügbar)\n"
-            "- bvg_pflicht: true (immer)\n"
+            "Du bist die neue Pensionskasse. Lies die Situationsdaten sorgfältig.\n"
+            f"{data_summary}\n"
+            "Extrahiere Eintrittsdatum aus dem Situationstext wenn nicht im Vorsorgeausweis.\n"
+            f"Verwende bvg_koordinationsabzug EXAKT aus den Vorsorgeausweis-Daten wenn vorhanden ({koord_val}).\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit exakt diesem JSON-Format (bvg_pflicht muss true sein): "
             "{\"eintrittsdatum\": \"YYYY-MM-DD\", "
-            "\"bvg_koordinationsabzug\": null, \"bvg_pflicht\": true}"
+            "\"bvg_koordinationsabzug\": <Wert oder null>, \"bvg_pflicht\": true}"
         )
     else:  # AVS
         system_prompt = (
             "Du bist die AHV/AVS.\n"
-            f"Vollständige Vorsorgedaten des Versicherten: {vorsorge_json}\n"
+            f"{data_summary}\n"
             f"{anti_hallucination}\n"
             "Antworte NUR mit JSON: "
             "{\"ik_auszug_verfuegbar\": true, \"beitragsjahre\": null}"
@@ -871,7 +918,12 @@ def _extract_doc_info(uploaded_files: list) -> dict:
     import io
     import sys
     import anthropic
-    import pypdf  # type: ignore[import]
+    try:
+        import pypdf  # type: ignore[import]
+        _PYPDF_OK = True
+    except ImportError:
+        _PYPDF_OK = False
+        print("[extract] WARNING: pypdf not installed — PDF text extraction disabled", file=sys.stderr)
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -881,9 +933,14 @@ def _extract_doc_info(uploaded_files: list) -> dict:
         file_ext = f.name.lower().rsplit(".", 1)[-1]
 
         if file_ext == "pdf":
+            if not _PYPDF_OK:
+                print(f"[extract] Skipping PDF '{f.name}': pypdf not available", file=sys.stderr)
+                continue
             try:
                 f.seek(0)
                 pdf_bytes = f.read()
+                print(f"[PDF] file name: {f.name}", flush=True)
+                print(f"[PDF] bytes read: {len(pdf_bytes)}", flush=True)
                 print(f"[extract] PDF bytes read: {len(pdf_bytes)}", file=sys.stderr)
                 reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
                 text_extracted = ""
@@ -954,10 +1011,12 @@ def _extract_doc_info(uploaded_files: list) -> dict:
             messages=[{"role": "user", "content": content_parts}],
         )
         raw_response = msg.content[0].text.strip()
+        print(f"[PDF] LLM raw response: {raw_response[:300]}", flush=True)
         print(f"[extract] raw LLM response: {raw_response}", file=sys.stderr)
         # Strip ``` fences robustly
         raw = raw_response.replace("```json", "").replace("```", "").strip()
         result = json.loads(raw)
+        print(f"[PDF] parsed result: {result}", flush=True)
         print(f"[extract] parsed result: {result}", file=sys.stderr)
         return result
     except Exception as _exc:
@@ -1124,9 +1183,11 @@ def _vs_step_1_situation() -> None:
                     extracted = _extract_doc_info(list(uploaded_files))
                 if extracted is not None:
                     st.session_state.extracted_doc_data = extracted
-                    # Save extracted PDF data to case_state.json
+                    # Save extracted PDF data to case_state.json AND session state
+                    # (must update both so the "Weiter" button does not overwrite)
                     _case = _load_case()
                     _case["vorsorge_ausweis"] = extracted
+                    st.session_state.case["vorsorge_ausweis"] = extracted
                     _save_case(_case)
                     st.rerun()
             else:
@@ -1156,8 +1217,10 @@ def _vs_step_1_situation() -> None:
             st.warning("Bitte beschreiben Sie zuerst Ihre Situation.")
         else:
             st.session_state.raw_input = raw.strip()
-            case = st.session_state.case
+            # Load from file first so vorsorge_ausweis (set by PDF extraction) is not lost
+            case = _load_case() or st.session_state.case
             case["situation"] = raw.strip()
+            st.session_state.case = case  # Keep session state in sync
             _save_case(case)
             _vs_go(2)
             st.rerun()
@@ -1741,6 +1804,7 @@ def _vs_step_5_ergebnis() -> None:
     # Load institution responses from JSON (may include manual responses)
     case      = _load_case()
     inst_resp = case.get("institution_responses", {})
+    vorsorge  = case.get("vorsorge_ausweis", {})  # PDF-extracted data as fallback
     # Normalize: unwrap actor-keyed nesting if LLM returned {actor_key: {...}} format
     inst_resp = {
         ak: (v[ak] if isinstance(v, dict) and isinstance(v.get(ak), dict) else v)
@@ -1758,15 +1822,24 @@ def _vs_step_5_ergebnis() -> None:
                 _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
                 _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
                 _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
-                # Extract explicit field values so the LLM knows exactly what was received
-                _austrittsdatum     = _old_pk.get("austrittsdatum")
-                _freizuegigkeit_chf = _old_pk.get("freizuegigkeit_chf")
-                _status_old         = _old_pk.get("status")
-                _eintrittsdatum     = _new_pk.get("eintrittsdatum")
-                _bvg_koord          = _new_pk.get("bvg_koordinationsabzug")
-                _bvg_pflicht        = _new_pk.get("bvg_pflicht")
+                # Prefer institution response values; fall back to vorsorge_ausweis
+                _freizuegigkeit_chf = (
+                    _old_pk.get("freizuegigkeit_chf")
+                    or vorsorge.get("freizuegigkeit_chf")
+                    or vorsorge.get("gesamtguthaben_chf")
+                )
+                _austrittsdatum = _old_pk.get("austrittsdatum")
+                _status_old     = _old_pk.get("status")
+                _eintrittsdatum = _new_pk.get("eintrittsdatum")
+                _bvg_koord = (
+                    _new_pk.get("bvg_koordinationsabzug")
+                    or vorsorge.get("koordinationsabzug_chf")
+                    or vorsorge.get("bvg_koordinationsabzug")
+                )
+                _bvg_pflicht = _new_pk.get("bvg_pflicht")
+                _user_name   = case.get("user_name", "—")
                 _user_msg = (
-                    f"Name des Versicherten: {case.get('user_name', '—')}\n\n"
+                    f"Name des Versicherten: {_user_name}\n\n"
                     f"Originale Situation: {case.get('situation', '—')}\n\n"
                     f"Antwort Alte Pensionskasse:\n"
                     f"  - freizuegigkeit_chf: {_freizuegigkeit_chf}\n"
@@ -1781,15 +1854,15 @@ def _vs_step_5_ergebnis() -> None:
                     model="claude-sonnet-4-20250514",
                     max_tokens=512,
                     system=(
-                        "Du bist HelveVista, ein Schweizer Vorsorgekoordinationssystem. "
-                        "Erstelle eine präzise, persönliche Zusammenfassung des Vorsorgevorgangs für den Versicherten. "
-                        "Verwende NUR die Daten aus dem Situationstext und den Institutsantworten — keine Erfindungen. "
-                        "Die Institutionen haben geantwortet. Felder mit dem Wert null oder None bedeuten "
-                        "'noch nicht angegeben' — sage dies explizit wenn relevant, sage aber NICHT dass die "
-                        "Institution nicht geantwortet hat. "
-                        "Wenn freizuegigkeit_chf null ist, erwähne KEINEN konkreten CHF-Betrag. "
-                        "Schreibe in der Du-Form, professionell und klar. "
-                        "Maximale Länge: 4-5 Sätze."
+                        f"Du bist HelveVista. Schreibe eine präzise, persönliche Zusammenfassung "
+                        f"in 3-4 Sätzen für {_user_name}.\n"
+                        "Verwende NUR die folgenden Daten — erfinde NICHTS:\n"
+                        f"- Freizügigkeitsguthaben: {_freizuegigkeit_chf or 'nicht angegeben'}\n"
+                        f"- Austrittsdatum: {_austrittsdatum or 'nicht angegeben'}\n"
+                        f"- Eintrittsdatum: {_eintrittsdatum or 'nicht angegeben'}\n"
+                        f"- BVG-Koordinationsabzug: {_bvg_koord or 'nicht angegeben'}\n"
+                        "Wenn ein Wert 'nicht angegeben' ist, erwähne ihn NICHT. "
+                        "Schreibe in der Du-Form, professionell und klar."
                     ),
                     messages=[{"role": "user", "content": _user_msg}],
                 )
@@ -1798,7 +1871,11 @@ def _vs_step_5_ergebnis() -> None:
                 _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
                 _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
                 _name = case.get("user_name", "Versicherte/r")
-                _chf = _old_pk.get("freizuegigkeit_chf")
+                _chf = (
+                    _old_pk.get("freizuegigkeit_chf")
+                    or vorsorge.get("freizuegigkeit_chf")
+                    or vorsorge.get("gesamtguthaben_chf")
+                )
                 _datum = _new_pk.get("eintrittsdatum", "—")
                 st.session_state.llm_summary = (
                     f"Liebe/r {_name}, Ihr Stellenwechsel wurde koordiniert. "
@@ -1836,19 +1913,24 @@ def _vs_step_5_ergebnis() -> None:
                 if "raw_reply" in resp:
                     st.info(resp["raw_reply"])
                 elif actor == Actor.OLD_PK:
-                    chf = resp.get("freizuegigkeit_chf")
-                    st.markdown(
-                        f"Freizügigkeitsguthaben: **{_fmt_chf(chf)}**"
+                    # Fallback to vorsorge_ausweis if institution response lacks value
+                    chf = (
+                        resp.get("freizuegigkeit_chf")
+                        or vorsorge.get("freizuegigkeit_chf")
+                        or vorsorge.get("gesamtguthaben_chf")
                     )
-                    st.markdown(f"Austrittsdatum: **{_fmt_str(resp.get('austrittsdatum'))}**")
-                    st.markdown(f"Status: **{_fmt_str(resp.get('status'))}**")
+                    st.markdown(f"Freizügigkeitsguthaben: **{_fmt_chf(chf)}**")
+                    st.markdown(f"Austrittsdatum: **{_fmt_date(resp.get('austrittsdatum'))}**")
+                    st.markdown(f"Status: **{_fmt_status(resp.get('status'))}**")
 
                 elif actor == Actor.NEW_PK:
-                    st.markdown(f"Eintrittsdatum: **{_fmt_str(resp.get('eintrittsdatum'))}**")
-                    koord = resp.get("bvg_koordinationsabzug")
-                    st.markdown(
-                        f"BVG-Koordinationsabzug: **{_fmt_chf(koord)}**"
+                    st.markdown(f"Eintrittsdatum: **{_fmt_date(resp.get('eintrittsdatum'))}**")
+                    koord = (
+                        resp.get("bvg_koordinationsabzug")
+                        or vorsorge.get("koordinationsabzug_chf")
+                        or vorsorge.get("bvg_koordinationsabzug")
                     )
+                    st.markdown(f"BVG-Koordinationsabzug: **{_fmt_chf(koord)}**")
                     pflicht = "Ja" if resp.get("bvg_pflicht") else "Nein"
                     st.markdown(f"BVG-Pflicht: **{pflicht}**")
 
@@ -2311,27 +2393,26 @@ _DEMO_FALLBACK_ANSWER = (
 
 
 def _chat_llm_answer(question: str, case: dict) -> str:
-    """Call Claude API with case context. Falls back to demo answer if no key."""
+    """Call Claude API with full case context incl. situation + vorsorge_ausweis."""
     import anthropic
 
-    case_json = json.dumps(
-        {
-            "structured_context":    case.get("structured_context", {}),
-            "institution_responses": case.get("institution_responses", {}),
-            "final_decision":        case.get("final_decision"),
-            "user_name":             case.get("user_name", ""),
-            "actor_states":          case.get("actor_states", {}),
-        },
-        ensure_ascii=False,
-        indent=2,
-    )
+    user_name      = case.get("user_name", "")
+    situation_text = case.get("situation", "")
+    vorsorge       = case.get("vorsorge_ausweis", {})
+    inst_responses = case.get("institution_responses", {})
+
     system_prompt = (
-        "Du bist HelveVista. Beantworte NUR Fragen basierend auf diesen "
-        f"konkreten Falldaten: {case_json}. "
-        "Gib präzise, kurze Antworten (max 2 Sätze). "
-        "Erfinde keine Zahlen oder Fakten die nicht in den Falldaten stehen. "
-        "Wenn die Frage nicht durch die Falldaten beantwortet werden kann, "
-        "antworte: 'AUSSERHALB_DES_FALLS: Diese Frage geht über Ihren Fall hinaus. "
+        "Du bist HelveVista. Beantworte Fragen NUR auf Basis dieser Falldaten:\n\n"
+        f"Versicherter: {user_name}\n"
+        f"Situation: {situation_text}\n\n"
+        "Vorsorgeausweis-Daten:\n"
+        f"{json.dumps(vorsorge, ensure_ascii=False, indent=2)}\n\n"
+        "Antworten der Institutionen:\n"
+        f"{json.dumps(inst_responses, ensure_ascii=False, indent=2)}\n\n"
+        "Wenn die Frage mit diesen Daten beantwortet werden kann, antworte direkt. "
+        "Antworte auf Deutsch, max 2 Sätze, ohne Erfindungen. "
+        "Wenn die Frage NICHT mit diesen Daten beantwortet werden kann, antworte: "
+        "'AUSSERHALB_DES_FALLS: Diese Information liegt mir für Ihren Fall nicht vor. "
         "Bitte kontaktieren Sie die zuständige Institution direkt.'"
     )
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
