@@ -1,0 +1,131 @@
+{
+  "case_id": "FCB54D8B",
+  "user_name": "Michael Brunner",
+  "user_email": "christopheralvaro.o@gmail.com",
+  "situation": "Ich heisse Michael Brunner und wechsle meine Stelle per 1. Juni 2026. Ich verlasse die UBS AG in Zürich, wo ich seit dem 1. März 2015 als Senior IT-Spezialist tätig war, und trete eine neue Stelle als Lead Engineer bei der Swiss Re AG in Zürich an. Mein letzter Arbeitstag bei der UBS ist der 31. Mai 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben korrekt von der UBS Pensionskasse zur Swiss Re Pensionskasse übertragen wird. Zudem benötige ich meinen aktuellen IK-Auszug der AHV-Ausgleichskasse, da ich meine Vorsorgesituation vollständig überprüfen möchte.",
+  "structured_context": {
+    "use_case": "STELLENWECHSEL",
+    "actors_involved": [
+      "OLD_PK",
+      "NEW_PK",
+      "AVS"
+    ],
+    "avs_required": true,
+    "user_summary": "Michael Brunner wechselt am 1. Juni 2026 von der UBS AG zur Swiss Re AG und möchte sein Pensionskassenguthaben korrekt übertragen lassen. Zusätzlich benötigt er seinen aktuellen IK-Auszug der AHV für eine vollständige Überprüfung seiner Vorsorgesituation.",
+    "missing_info": []
+  },
+  "activated_actors": [
+    "OLD_PK",
+    "AVS",
+    "NEW_PK"
+  ],
+  "requests": {
+    "OLD_PK": {
+      "sent_at": 1776023198.061711,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    },
+    "AVS": {
+      "sent_at": 1776023198.061711,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    },
+    "NEW_PK": {
+      "sent_at": 1776023198.061711,
+      "payload": {
+        "use_case": "STELLENWECHSEL"
+      }
+    }
+  },
+  "institution_responses": {
+    "AVS": {
+      "raw_reply": "IK-Auszug verfügbar: Ja\r\nAHV-Nummer: 756.9341.2087.56\r\nBeitragsjahre: 24\r\nBeitragslücken: 0\r\nStatus: IK-Auszug bereitgestellt\r\n\r\nOn Sun, Apr 12, 2026 at 9:46 PM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Michael Brunner wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Michael Brunner\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    FCB54D8B\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"Ich heisse Michael Brunner und wechsle meine Stelle per 1. Juni 2026. Ich\r\n> verlasse die UBS AG in Zürich, wo ich seit dem 1. März 2015 als Senior\r\n> IT-Spezialist tätig war, und trete eine neue Stelle als Lead Engineer bei\r\n> der Swiss Re AG in Zürich an. Mein letzter Arbeitstag bei der UBS ist der\r\n> 31. Mai 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben\r\n> korrekt von der UBS Pensionskasse zur Swiss Re Pensionskasse übertragen\r\n> wird. Zudem benötige ich meinen aktuellen IK-Auszug der\r\n> AHV-Ausgleichskasse, da ich meine Vorsorgesituation vollständig überprüfen\r\n> möchte.\"\r\n>\r\n> Michael Brunner hat einen Stellenwechsel vollzogen und benötigt zur\r\n> Überprüfung der Vorsorgesituation einen aktuellen IK-Auszug (Individuelles\r\n> Konto).\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • IK-Auszug (Individuelles Konto) der versicherten Person\r\n>   • Anzahl Beitragsjahre (kumuliert bis heute)\r\n>   • Allfällige Beitragslücken (Jahre und Gründe, falls bekannt)\r\n>   • AHV-Nummer des/der Versicherten zur eindeutigen Identifikation\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID FCB54D8B um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: FCB54D8B | AVS ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
+    },
+    "NEW_PK": {
+      "raw_reply": "Eintrittsdatum: 01.06.2026\r\nBVG-Koordinationsabzug: CHF 26'460\r\nBVG-Pflicht: Ja\r\n\r\nOn Sun, Apr 12, 2026 at 9:46 PM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Michael Brunner wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Michael Brunner\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    FCB54D8B\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"Ich heisse Michael Brunner und wechsle meine Stelle per 1. Juni 2026. Ich\r\n> verlasse die UBS AG in Zürich, wo ich seit dem 1. März 2015 als Senior\r\n> IT-Spezialist tätig war, und trete eine neue Stelle als Lead Engineer bei\r\n> der Swiss Re AG in Zürich an. Mein letzter Arbeitstag bei der UBS ist der\r\n> 31. Mai 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben\r\n> korrekt von der UBS Pensionskasse zur Swiss Re Pensionskasse übertragen\r\n> wird. Zudem benötige ich meinen aktuellen IK-Auszug der\r\n> AHV-Ausgleichskasse, da ich meine Vorsorgesituation vollständig überprüfen\r\n> möchte.\"\r\n>\r\n> Michael Brunner wird in Kürze in Ihrem Unternehmen eintreten. Im Rahmen\r\n> dieses Stellenwechsels sind die Anmeldung zur BVG-Pflicht sowie die\r\n> Übernahme des Freizügigkeitsguthabens von der bisherigen Pensionskasse zu\r\n> regeln.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Eintrittsdatum\r\n>   • Geltender BVG-Koordinationsabzug\r\n>   • Bestätigung der BVG-Pflicht\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID FCB54D8B um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: FCB54D8B | NEW_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
+    },
+    "OLD_PK": {
+      "raw_reply": "Freizügigkeitsguthaben: CHF 137'700\r\nAustrittsdatum: 31.05.2026\r\nStatus: Austritt bestätigt\r\n\r\nOn Sun, Apr 12, 2026 at 9:46 PM HelveVista Koordination <\r\ninfo.helvevista@gmail.com> wrote:\r\n\r\n> Sehr geehrte Damen und Herren\r\n>\r\n> Im Auftrag von Michael Brunner wenden wir uns mit folgendem Anliegen an\r\n> Sie.\r\n>\r\n> ─────────────────────────────────────────\r\n> ANGABEN ZUR VERSICHERTEN PERSON\r\n> Name:       Michael Brunner\r\n> E-Mail:     christopheralvaro.o@gmail.com\r\n> Fall-ID:    FCB54D8B\r\n> Verfahren:  Stellenwechsel\r\n> ─────────────────────────────────────────\r\n>\r\n> MITTEILUNG DES VERSICHERTEN:\r\n> \"Ich heisse Michael Brunner und wechsle meine Stelle per 1. Juni 2026. Ich\r\n> verlasse die UBS AG in Zürich, wo ich seit dem 1. März 2015 als Senior\r\n> IT-Spezialist tätig war, und trete eine neue Stelle als Lead Engineer bei\r\n> der Swiss Re AG in Zürich an. Mein letzter Arbeitstag bei der UBS ist der\r\n> 31. Mai 2026. Ich möchte sicherstellen, dass mein Pensionskassenguthaben\r\n> korrekt von der UBS Pensionskasse zur Swiss Re Pensionskasse übertragen\r\n> wird. Zudem benötige ich meinen aktuellen IK-Auszug der\r\n> AHV-Ausgleichskasse, da ich meine Vorsorgesituation vollständig überprüfen\r\n> möchte.\"\r\n>\r\n> Michael Brunner tritt in Kürze aus Ihrem Versichertenbestand aus und\r\n> wechselt zu einem neuen Arbeitgeber. Im Rahmen dieses Stellenwechsels ist\r\n> die Abwicklung der Freizügigkeitsleistung gemäss Freizügigkeitsgesetz (FZG)\r\n> erforderlich.\r\n>\r\n> Wir bitten Sie um folgende Informationen:\r\n>   • Höhe des Freizügigkeitsguthabens zum Austrittsdatum\r\n>   • Austrittsdatum\r\n>   • Bestätigung der Überweisungsadresse für die neue Pensionskasse\r\n>\r\n> ────────────────────────────────────────────────────\r\n> ANTWORTMÖGLICHKEITEN:\r\n>\r\n> Option A — Per E-Mail:\r\n> Antworten Sie direkt auf diese E-Mail mit den angeforderten Angaben.\r\n> Die Referenz-ID am Ende dieser E-Mail ermöglicht die automatische\r\n> Zuordnung.\r\n>\r\n> Option B — Via HelveVista Plattform:\r\n> Melden Sie sich unter http://localhost:8501 an und verwenden Sie\r\n> die Fall-ID FCB54D8B um diesen Fall direkt in der Plattform zu bearbeiten.\r\n> ────────────────────────────────────────────────────\r\n>\r\n> Mit freundlichen Grüssen\r\n> HelveVista Koordinationsstelle\r\n>\r\n>\r\n> --- HelveVista Referenz: FCB54D8B | OLD_PK ---\r\n> Diese E-Mail wurde automatisch durch das HelveVista Koordinationssystem\r\n> generiert.\r\n> Antworten Sie direkt auf diese E-Mail — die Referenz-ID ermöglicht die\r\n> automatische Zuordnung.\r\n>\r\n"
+    }
+  },
+  "institution_responded": {
+    "AVS": true,
+    "NEW_PK": true,
+    "OLD_PK": true
+  },
+  "actor_states": {
+    "OLD_PK": "COMPLETED",
+    "NEW_PK": "COMPLETED",
+    "AVS": "COMPLETED"
+  },
+  "orchestrator_state": "USER_VALIDATION",
+  "final_decision": null,
+  "created_at": "2026-04-12T21:46:03",
+  "follow_up_requests": {},
+  "follow_up_questions": {},
+  "institution_clarification_requests": {},
+  "user_clarification_responses": {},
+  "vorsorge_ausweis": {
+    "name": "Brunner, Michael",
+    "ahv_nummer": "756.9341.2087.56",
+    "pensionskasse": "UBS Pensionskasse\nBahnhofstrasse 45, 8001 Zürich",
+    "freizuegigkeit_chf": 137700.0,
+    "koordinationsabzug_chf": 26460.0,
+    "austrittsdatum": "31. Mai 2026",
+    "eintrittsdatum": "01. März 2015",
+    "email": "pk@ubs.com",
+    "telefon": "+41 44 234 11 11"
+  },
+  "institution_emails": {
+    "OLD_PK": "info.helvevista@gmail.com",
+    "NEW_PK": "info.helvevista@gmail.com",
+    "AVS": "info.helvevista@gmail.com"
+  },
+  "email_sent": {
+    "AVS": {
+      "to": "info.helvevista@gmail.com",
+      "sent_at": "2026-04-12T19:46:45",
+      "message_id": "19d833b7f9dd23da",
+      "subject": "HelveVista — Anfrage AHV-Ausgleichskasse — Fall FCB54D8B",
+      "error": false
+    },
+    "NEW_PK": {
+      "to": "info.helvevista@gmail.com",
+      "sent_at": "2026-04-12T19:46:47",
+      "message_id": "19d833b87fe39870",
+      "subject": "HelveVista — Anfrage Neue Pensionskasse — Fall FCB54D8B",
+      "error": false
+    },
+    "OLD_PK": {
+      "to": "info.helvevista@gmail.com",
+      "sent_at": "2026-04-12T19:46:50",
+      "message_id": "19d833b8fa14b23d",
+      "subject": "HelveVista — Anfrage Alte Pensionskasse — Fall FCB54D8B",
+      "error": false
+    }
+  },
+  "institution_response_date": {
+    "AVS": "2026-04-12T19:48:23",
+    "NEW_PK": "2026-04-12T19:48:28",
+    "OLD_PK": "2026-04-12T19:48:34"
+  },
+  "email_replies": {
+    "AVS": {
+      "received_at": "2026-04-12T19:48:23",
+      "gmail_message_id": "19d833cb372271f8",
+      "parsed": true
+    },
+    "NEW_PK": {
+      "received_at": "2026-04-12T19:48:28",
+      "gmail_message_id": "19d833c418598868",
+      "parsed": true
+    },
+    "OLD_PK": {
+      "received_at": "2026-04-12T19:48:34",
+      "gmail_message_id": "19d833bee5c3b27e",
+      "parsed": true
+    }
+  }
+}
