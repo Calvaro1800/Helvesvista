@@ -113,23 +113,24 @@ PENDING
 
 The prototype demonstrates the full orchestration model for the **Stellenwechsel** (job change) use case — the canonical multilateral pension coordination scenario involving up to three institutional actors.
 
-### Running the demo
+## Running the prototype
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/helvevista.git
-cd helvevista
+git clone https://github.com/Calvaro1800/Helvesvista.git
+cd Helvesvista
 
-# Install
+# Install dependencies
 pip install -r requirements.txt
 
-# Run demo (simulated — no API key needed)
-python prototype/main.py
-
-# Run with LLM (Claude API)
-export ANTHROPIC_API_KEY=sk-ant-...
-python prototype/main.py
+# Run (Demo-Modus — no Gmail credentials needed)
+streamlit run prototype/ui/user_app.py
 ```
+
+For Live-Modus (real Gmail emails to institutions):
+- Add `credentials.json` (Google OAuth2) to project root
+- Set `ANTHROPIC_API_KEY` environment variable
+- On first run, browser opens for Gmail authentication
 
 ### Running the tests
 
@@ -152,44 +153,24 @@ python prototype/tests/test_stellenwechsel.py
 
 ```
 helvevista/
-│
-├── prototype/                    # Core implementation
+├── prototype/
 │   ├── core/
-│   │   ├── states.py             # All states: OrchestratorState, ActorState, Actor
-│   │   ├── event_log.py          # Append-only event log (Source of Truth)
-│   │   ├── actor_process.py      # Mini state machine per institutional actor
-│   │   └── orchestrator.py       # Main orchestration engine
+│   │   ├── states.py          # OrchestratorState, ActorState, Actor
+│   │   ├── event_log.py       # Append-only event log (Source of Truth)
+│   │   ├── actor_process.py   # Mini state machine per institutional actor
+│   │   └── orchestrator.py    # Main orchestration engine
 │   ├── llm/
-│   │   └── structurer.py         # LLM layer — Claude API (structure / formulate only)
-│   ├── tests/
-│   │   └── test_stellenwechsel.py # Scenario tests (H1 + H2)
-│   └── main.py                   # Entry point / interactive demo
-│
-├── docs/
-│   ├── thesis_model/             # Formal process model documentation
-│   └── pension_context/          # Swiss pension system background
-│
-├── architecture/
-│   ├── system_architecture.png   # Full system architecture diagram
-│   └── control_vs_llm.png        # Control layer vs LLM separation
-│
-├── state_machine/
-│   ├── helvevista_state_machine.md  # Formal state machine specification
-│   └── diagrams/                 # State machine diagrams
-│
-├── diagrams/
-│   ├── state_machine.png
-│   ├── architecture.png
-│   └── event_flow.png
-│
-├── notebooks/
-│   └── experiments.ipynb         # Exploratory analysis and experiments
-│
-├── research/
-│   └── literature_notes.md       # Key literature references and notes
-│
+│   │   ├── structurer.py      # LLM layer — Claude API
+│   │   └── email_agent.py     # Gmail OAuth2 bridge (Cold Start solution)
+│   ├── ui/
+│   │   └── user_app.py        # Streamlit dual-role UI (Versicherter + Institution)
+│   └── tests/
+│       └── test_stellenwechsel.py  # Scenario tests (H1 + H2)
+├── skills/                    # Prompt engineering skills
+├── .streamlit/
+│   └── config.toml
 ├── requirements.txt
-├── .gitignore
+├── CLAUDE.md
 └── README.md
 ```
 
@@ -238,9 +219,12 @@ The scientific contribution lies in:
 | Orchestration engine | ✅ Implemented |
 | Version conflict detection (H1) | ✅ Tested |
 | Timeout & escalation (H2) | ✅ Tested |
-| LLM integration (Claude API) | ✅ Implemented |
-| User interface | 🔄 In progress |
-| H3 evaluation | 📅 Planned |
+| LLM integration (Claude Sonnet) | ✅ Implemented |
+| Gmail OAuth2 bridge (Cold Start) | ✅ Implemented |
+| Dual-role Streamlit UI | ✅ Complete |
+| PDF extraction (Vorsorgeausweis) | ✅ Implemented |
+| AHV / AVS third actor | ✅ Implemented |
+| H3 evaluation | 📅 Planned (April 2026) |
 
 ---
 

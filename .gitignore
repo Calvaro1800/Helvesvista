@@ -45,6 +45,7 @@ htmlcov/
 # Event log data (may contain sensitive case data)
 data/*.jsonl
 data/*.json
+case_state.json
 
 # Thesis drafts (kept separate from code)
 docs/drafts/
