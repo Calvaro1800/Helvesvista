@@ -533,6 +533,11 @@ def _init_session() -> None:
         "_doc_upload_names":   [],       # track uploaded file names to detect new uploads
         # Scenario selection landing page
         "selected_scenario":   None,     # None | "stellenwechsel" (future: more scenarios)
+        # Sparring Buddy (Step 1 chat interface)
+        "sparring_messages":   [],
+        "sparring_complete":   False,
+        "sparring_situation":  "",
+        "sparring_collected":  {},
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -1123,6 +1128,321 @@ def _page_login() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SPARRING BUDDY — Step 1 chat interface
+# ══════════════════════════════════════════════════════════════════════════════
+
+MANDATORY_FIELDS = [
+    "name",
+    "alter_arbeitgeber",
+    "alter_arbeitgeber_ort",
+    "neuer_arbeitgeber",
+    "neuer_arbeitgeber_ort",
+    "austrittsdatum",
+    "eintrittsdatum",
+    "email_alte_pk",
+    "email_neue_pk",
+]
+
+VORSORGE_TO_SPARRING = {
+    "name":                   "name",
+    "ahv_nummer":             "ahv_nummer",
+    "freizuegigkeit_chf":     "freizuegigkeit_chf",
+    "koordinationsabzug_chf": "koordinationsabzug_chf",
+    "austrittsdatum":         "austrittsdatum",
+    "eintrittsdatum":         "eintrittsdatum",
+    "email":                  "email_alte_pk",
+}
+
+FIELD_LABELS_DE = {
+    "name":                   "Name",
+    "alter_arbeitgeber":      "Alter Arbeitgeber",
+    "alter_arbeitgeber_ort":  "Ort (alter AG)",
+    "neuer_arbeitgeber":      "Neuer Arbeitgeber",
+    "neuer_arbeitgeber_ort":  "Ort (neuer AG)",
+    "austrittsdatum":         "Austrittsdatum",
+    "eintrittsdatum":         "Eintrittsdatum",
+    "email_alte_pk":          "E-Mail Alte PK",
+    "email_neue_pk":          "E-Mail Neue PK",
+    "ahv_nummer":             "AHV-Nummer",
+    "freizuegigkeit_chf":     "Freizügigkeitsguthaben",
+    "koordinationsabzug_chf": "Koordinationsabzug",
+}
+
+
+def _sparring_extract_info(messages: list) -> dict:
+    """
+    Call Claude API with conversation history and extract structured fields.
+    Returns a dict of non-null field values found in the conversation.
+    On any exception returns {}.
+    """
+    import anthropic
+    try:
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        system = (
+            "Analysiere dieses Gespräch und extrahiere alle genannten Informationen. "
+            "Antworte NUR mit JSON, kein Text davor oder danach:\n"
+            "{\n"
+            '  "name": null,\n'
+            '  "geburtsdatum": null,\n'
+            '  "ahv_nummer": null,\n'
+            '  "alter_arbeitgeber": null,\n'
+            '  "alter_arbeitgeber_ort": null,\n'
+            '  "neuer_arbeitgeber": null,\n'
+            '  "neuer_arbeitgeber_ort": null,\n'
+            '  "austrittsdatum": null,\n'
+            '  "eintrittsdatum": null,\n'
+            '  "email_alte_pk": null,\n'
+            '  "email_neue_pk": null,\n'
+            '  "freizuegigkeit_chf": null,\n'
+            '  "koordinationsabzug_chf": null,\n'
+            '  "versicherter_lohn": null\n'
+            "}\n"
+            "Setze null wenn nicht erwähnt. Nur JSON."
+        )
+        msg = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            system=system,
+            messages=messages,
+        )
+        raw = msg.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+        parsed = json.loads(raw)
+        return {k: v for k, v in parsed.items() if v is not None}
+    except Exception:
+        return {}
+
+
+def _sparring_generate_situation() -> str:
+    """
+    Merge sparring_collected with vorsorge data, then call Claude to produce
+    a 3–5 sentence German prose description of the user's situation.
+    Stores result in st.session_state.sparring_situation and returns it.
+    On any exception returns "".
+    """
+    import anthropic
+    try:
+        vorsorge = _load_case().get("vorsorge_ausweis", {})
+        merged: dict = {}
+        merged.update({k: v for k, v in vorsorge.items() if v is not None})
+        merged.update(st.session_state.sparring_collected)
+
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        prompt = (
+            "Schreibe einen deutschen Fliesstext (3-5 Sätze) in der Ich-Form "
+            "des Versicherten, der die Situation für HelveVista beschreibt. "
+            "Enthalte: Name, Stellenwechsel-Details, Arbeitgeber, Daten, "
+            "Vorsorgewunsch. Professionell und vollständig.\n"
+            f"Daten: {json.dumps(merged, ensure_ascii=False)}"
+        )
+        msg = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text.strip()
+        st.session_state.sparring_situation = text
+        return text
+    except Exception:
+        return ""
+
+
+def _sparring_llm_response() -> None:
+    """
+    Generate the next assistant message in the Sparring Buddy conversation.
+    Checks which MANDATORY_FIELDS are still missing from sparring_collected,
+    calls Claude with a structured system prompt, appends the response, and
+    updates sparring_collected by re-extracting from the full conversation.
+    Sets sparring_complete=True when all mandatory fields are present.
+    """
+    import anthropic
+    try:
+        collected = st.session_state.sparring_collected
+
+        # Build missing list — exclude fields already pre-filled from vorsorge
+        missing_list = [
+            f for f in MANDATORY_FIELDS
+            if not collected.get(f)
+        ]
+
+        if not missing_list:
+            st.session_state.sparring_complete = True
+            return
+
+        pre_filled_summary = ", ".join(
+            f"{FIELD_LABELS_DE.get(k, k)}: {v}"
+            for k, v in collected.items()
+            if v
+        ) or "keine"
+
+        system = (
+            "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
+            "Führe ein strukturiertes Gespräch auf Deutsch.\n\n"
+            f"BEREITS BESTÄTIGT (nicht nochmals fragen):\n{pre_filled_summary}\n\n"
+            f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
+            "REGELN:\n"
+            "- Maximal 2 Fragen pro Nachricht\n"
+            "- Bestätige erhaltene Informationen kurz\n"
+            "- Frage NUR nach fehlenden Pflichtangaben\n"
+            "- Bei E-Mail-Adressen erkläre: 'Damit HelveVista die Institution "
+            "direkt kontaktieren kann.'\n"
+            "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf neuer "
+            "Zeile: [SPARRING_COMPLETE]\n"
+            "- Ausschliesslich Deutsch"
+        )
+
+        client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        msg = client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=512,
+            system=system,
+            messages=st.session_state.sparring_messages,
+        )
+        raw_response = msg.content[0].text.strip()
+
+        complete = "[SPARRING_COMPLETE]" in raw_response
+        clean_response = raw_response.replace("[SPARRING_COMPLETE]", "").strip()
+
+        if complete:
+            st.session_state.sparring_complete = True
+
+        st.session_state.sparring_messages.append(
+            {"role": "assistant", "content": clean_response}
+        )
+
+        # Re-extract structured info from full conversation
+        extracted = _sparring_extract_info(st.session_state.sparring_messages)
+        st.session_state.sparring_collected.update(extracted)
+
+        # Re-check if now complete after extraction
+        still_missing = [f for f in MANDATORY_FIELDS if not st.session_state.sparring_collected.get(f)]
+        if not still_missing:
+            st.session_state.sparring_complete = True
+
+    except Exception as exc:
+        st.session_state.sparring_messages.append({
+            "role": "assistant",
+            "content": f"Entschuldigung, es ist ein Fehler aufgetreten. Bitte versuchen Sie es erneut. ({exc})",
+        })
+
+
+def _sparring_buddy_chat() -> None:
+    """
+    Render the Sparring Buddy chat interface for Step 1.
+    Pre-fills sparring_collected from vorsorge_ausweis on first call.
+    The conversation collects all MANDATORY_FIELDS, then generates a
+    situation text and advances to Step 2.
+    """
+    # A) LOAD DATA
+    case = _load_case() or st.session_state.case
+    vorsorge = case.get("vorsorge_ausweis", {})
+
+    # B) PRE-FILL FROM VORSORGE — only on first call (no messages yet)
+    if not st.session_state.sparring_messages:
+        if vorsorge:
+            for v_key, s_key in VORSORGE_TO_SPARRING.items():
+                val = vorsorge.get(v_key)
+                if val:
+                    st.session_state.sparring_collected[s_key] = val
+
+        collected = st.session_state.sparring_collected
+        confirmed_list = [
+            FIELD_LABELS_DE.get(k, k)
+            for k in FIELD_LABELS_DE
+            if collected.get(k)
+        ]
+        still_missing = [
+            FIELD_LABELS_DE.get(f, f)
+            for f in MANDATORY_FIELDS
+            if not collected.get(f)
+        ]
+
+        if confirmed_list:
+            opening = (
+                "Guten Tag! Ich habe Ihren Vorsorgeausweis bereits gelesen. "
+                f"Folgende Angaben sind bereits erfasst: "
+                f"{', '.join(confirmed_list)}. "
+                f"Ich benötige noch: {', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
+                "Dürfen wir beginnen?"
+            )
+        else:
+            opening = (
+                "Guten Tag! Ich bin HelveVista, Ihr persönlicher "
+                "Vorsorge-Assistent. Um Ihren Stellenwechsel korrekt zu "
+                "koordinieren, benötige ich einige Angaben. "
+                "Wie heissen Sie vollständig?"
+            )
+        st.session_state.sparring_messages.append(
+            {"role": "assistant", "content": opening}
+        )
+
+    # C) DISPLAY CHAT MESSAGES
+    for msg in st.session_state.sparring_messages:
+        if msg["role"] == "assistant":
+            st.markdown(
+                f'<div style="background:#0d1f2d; border:1px solid #1a3a5c; '
+                f'border-radius:8px; padding:12px 16px; margin:4px 0; '
+                f'color:#e0e8f0; font-size:0.88rem;">{msg["content"]}</div>',
+                unsafe_allow_html=True,
+            )
+        elif msg["role"] == "user":
+            st.markdown(
+                f'<div style="background:#12231a; border:1px solid #C9A84C; '
+                f'border-radius:8px; padding:12px 16px; margin:4px 0; '
+                f'color:#ffffff; font-size:0.88rem; text-align:right;">{msg["content"]}</div>',
+                unsafe_allow_html=True,
+            )
+
+    # D) INPUT (only if not complete)
+    if not st.session_state.sparring_complete:
+        col_in, col_btn = st.columns([5, 1])
+        with col_in:
+            user_input = st.text_input(
+                "",
+                placeholder="Ihre Antwort…",
+                key="sparring_input",
+                label_visibility="collapsed",
+            )
+        with col_btn:
+            send = st.button("Senden", key="sparring_send", use_container_width=True)
+        if send and user_input.strip():
+            st.session_state.sparring_messages.append(
+                {"role": "user", "content": user_input.strip()}
+            )
+            _sparring_llm_response()
+            st.rerun()
+
+    # E) COMPLETION
+    if st.session_state.sparring_complete:
+        st.success("Alle notwendigen Angaben wurden erfasst.")
+        st.markdown("---")
+
+        collected = st.session_state.sparring_collected
+        st.markdown('<div class="hv-label">Zusammenfassung der erfassten Angaben</div>', unsafe_allow_html=True)
+        for key, label in FIELD_LABELS_DE.items():
+            val = collected.get(key)
+            if val:
+                col_l, col_r = st.columns([2, 3])
+                with col_l:
+                    st.caption(label)
+                with col_r:
+                    st.markdown(f"**{val}**")
+
+        st.markdown("---")
+        if st.button("Weiter", key="sparring_weiter", type="primary", use_container_width=False):
+            situation_text = _sparring_generate_situation()
+            existing = _load_case() or {}
+            case = st.session_state.case
+            case["situation"] = situation_text
+            if not case.get("vorsorge_ausweis") and existing.get("vorsorge_ausweis"):
+                case["vorsorge_ausweis"] = existing["vorsorge_ausweis"]
+            st.session_state.case = case
+            st.session_state.raw_input = situation_text
+            _save_case(case)
+            _vs_go(2)
+            st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # VERSICHERTER FLOW — Steps 1–6 + Final
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1139,24 +1459,6 @@ def _vs_step_1_situation() -> None:
     )
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
-
-    raw = st.text_area(
-        "Ihre Situation",
-        value=st.session_state.raw_input,
-        placeholder=(
-            "Beispiel: Ich wechsle meinen Job per 1. April 2025 von der Müller AG Zürich "
-            "zur Novartis Basel. Was muss ich bezüglich meiner Pensionskasse und "
-            "meinem AHV-Konto tun?"
-        ),
-        height=160,
-        label_visibility="collapsed",
-    )
-
-    if not _use_llm():
-        st.caption(
-            "Demo-Modus — ANTHROPIC_API_KEY nicht gesetzt. "
-            "Die Analyse wird mit Standardwerten simuliert."
-        )
 
     # ── Document upload (Feature 2) ────────────────────────────────────────────
     st.markdown("#### Dokumente hochladen (optional)")
@@ -1212,23 +1514,7 @@ def _vs_step_1_situation() -> None:
             label = _label_map_disp.get(k, k.replace("_", " ").title())
             st.caption(f"**{label}:** {v}")
 
-    st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
-
-    if st.button("Weiter", type="primary", use_container_width=True):
-        if not raw.strip():
-            st.warning("Bitte beschreiben Sie zuerst Ihre Situation.")
-        else:
-            st.session_state.raw_input = raw.strip()
-            existing = _load_case() or {}
-            case = st.session_state.case
-            case["situation"] = raw.strip()
-            # Preserve vorsorge_ausweis from existing file if present
-            if not case.get("vorsorge_ausweis") and existing.get("vorsorge_ausweis"):
-                case["vorsorge_ausweis"] = existing["vorsorge_ausweis"]
-            st.session_state.case = case
-            _save_case(case)
-            _vs_go(2)
-            st.rerun()
+    _sparring_buddy_chat()
 
 
 def _vs_step_2_analyse() -> None:
