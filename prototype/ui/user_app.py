@@ -531,6 +531,8 @@ def _init_session() -> None:
         # Document extraction (Feature 2)
         "extracted_doc_data":  {},       # fields extracted from uploaded documents
         "_doc_upload_names":   [],       # track uploaded file names to detect new uploads
+        # Scenario selection landing page
+        "selected_scenario":   None,     # None | "stellenwechsel" (future: more scenarios)
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -4040,11 +4042,148 @@ def _show_onboarding() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# SCENARIO SELECTION — landing page shown once before entering the main flow
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _scenario_selection_page() -> None:
+    """Full-page scenario picker. Sets selected_scenario and reruns on choice."""
+
+    # ── Header ────────────────────────────────────────────────────────────────
+    st.markdown(
+        """
+<div style="text-align:center; padding:3rem 0 0.75rem 0;">
+  <span style="color:#C9A84C; font-size:3.5rem; font-weight:700;
+               letter-spacing:0.12em;">Helve</span><span
+        style="color:#FFFFFF; font-size:3.5rem; font-weight:200;
+               letter-spacing:0.12em;">Vista</span>
+</div>
+<p style="text-align:center; color:#888; font-size:0.88rem;
+          margin:0.25rem 0 1.25rem 0; letter-spacing:0.02em;">
+  Koordination Ihrer Vorsorge — einfach, sicher, digital.
+</p>
+<hr style="border-color:#1A3048; margin:0 0 1.25rem 0;"/>
+<p style="text-align:center; color:#3E5F7A; font-size:0.65rem;
+          letter-spacing:0.3em; text-transform:uppercase;
+          font-weight:500; margin-bottom:1.75rem;">
+  Wählen Sie Ihr Anliegen
+</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # ── Row 1 ─────────────────────────────────────────────────────────────────
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(
+            """
+<div style="background:#0d1f2d; border:1.5px solid #C9A84C;
+            border-radius:10px; padding:24px; min-height:180px;">
+  <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Stellenwechsel</p>
+  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0;">
+    Wechsel des Arbeitgebers mit korrekter Übertragung
+    des BVG-Guthabens an die neue Pensionskasse.
+  </p>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
+        # Small top-margin spacer so the button sits flush under the card
+        st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+        if st.button(
+            "Jetzt starten",
+            key="btn_stellenwechsel",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.selected_scenario = "stellenwechsel"
+            st.rerun()
+
+    with col2:
+        st.markdown(
+            """
+<div style="background:#0d1f2d; border:1px solid #1a3a5c;
+            border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
+  <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Pensionierung</p>
+  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
+    Koordination aller Vorsorgeeinrichtungen
+    für einen optimalen Übertritt in den Ruhestand.
+  </p>
+  <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
+    In Entwicklung
+  </span>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ── Row 2 ─────────────────────────────────────────────────────────────────
+    st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
+    col3, col4 = st.columns(2)
+
+    with col3:
+        st.markdown(
+            """
+<div style="background:#0d1f2d; border:1px solid #1a3a5c;
+            border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
+  <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">AHV / Zivilstandsänderung</p>
+  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
+    Meldung von Adress- oder Zivilstandsänderungen
+    an die zuständige AHV-Ausgleichskasse.
+  </p>
+  <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
+    In Entwicklung
+  </span>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with col4:
+        st.markdown(
+            """
+<div style="background:#0d1f2d; border:1px solid #1a3a5c;
+            border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
+  <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Scheidung / Gütertrennung</p>
+  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
+    Koordination der Aufteilung von Vorsorgevermögen
+    im Rahmen einer Scheidung.
+  </p>
+  <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
+    In Entwicklung
+  </span>
+</div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    st.markdown(
+        """
+<p style="text-align:center; color:#3E5F7A; font-size:0.68rem;
+          letter-spacing:0.12em; margin-top:2.5rem;">
+  HelveVista — Bachelorarbeit ZHAW 2026 |
+  Supervisor: Prof. Dr. Alexandre De Spindler
+</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ROUTER — dispatches to correct page/step based on session state
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
     _inject_css()
+
+    if not st.session_state.get("selected_scenario"):
+        _scenario_selection_page()
+        return
 
     if not st.session_state.onboarding_done:
         _show_onboarding()
