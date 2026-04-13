@@ -1371,16 +1371,25 @@ def _sparring_buddy_chat() -> None:
         if not collected.get(f)
     ]
 
+    confirmed_str = "".join(
+        f"✓ {item}<br>" for item in confirmed_list
+    )
+    missing_str = (
+        "".join(f"→ {item}<br>" for item in still_missing)
+        if still_missing
+        else "Keine weiteren Angaben erforderlich."
+    )
+
     # Opening message — only if no messages yet
     if not st.session_state.sparring_messages:
         if confirmed_list:
             opening = (
-                "Guten Tag! Ich habe Ihren Vorsorgeausweis bereits "
-                "gelesen. Folgende Angaben sind bereits erfasst: "
-                f"{', '.join(confirmed_list)}. "
-                "Ich benötige noch: "
-                f"{', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
-                "Dürfen wir beginnen?"
+                "Guten Tag! Ich habe Ihren Vorsorgeausweis gelesen "
+                "und folgende Angaben bereits erfasst:<br><br>"
+                f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
+                "<br>Noch benötigt:<br>"
+                f"<span style='color:#C9A84C;font-size:0.85rem;'>{missing_str}</span>"
+                "<br>Dürfen wir beginnen?"
             )
         else:
             opening = (
@@ -1396,12 +1405,12 @@ def _sparring_buddy_chat() -> None:
     elif needs_update and len(st.session_state.sparring_messages) == 1:
         # PDF uploaded after opening message — refresh it
         updated_opening = (
-            "Guten Tag! Ich habe Ihren Vorsorgeausweis soeben gelesen. "
-            "Folgende Angaben sind bereits erfasst: "
-            f"{', '.join(confirmed_list)}. "
-            "Ich benötige noch: "
-            f"{', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
-            "Dürfen wir beginnen?"
+            "Ich habe Ihren Vorsorgeausweis soeben gelesen "
+            "und folgende Angaben erfasst:<br><br>"
+            f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
+            "<br>Noch benötigt:<br>"
+            f"<span style='color:#C9A84C;font-size:0.85rem;'>{missing_str}</span>"
+            "<br>Dürfen wir beginnen?"
         )
         st.session_state.sparring_messages[0] = {
             "role": "assistant",
@@ -1469,9 +1478,9 @@ def _sparring_buddy_chat() -> None:
               color:#0d1f2d; flex-shrink:0; margin-top:2px;">HV</div>
   <div style="background:#0d2137; border:1px solid #1e3d5c;
               border-radius:4px 12px 12px 12px;
-              padding:12px 16px; max-width:85%;
-              color:#e0e8f0; font-size:0.9rem;
-              line-height:1.6;">
+              padding:16px 20px; max-width:88%;
+              color:#e0e8f0; font-size:1.0rem;
+              line-height:1.75;">
     {msg["content"]}
   </div>
 </div>
@@ -1500,9 +1509,12 @@ def _sparring_buddy_chat() -> None:
     if not st.session_state.sparring_complete:
         st.markdown(
             """
-<div style="margin-top:8px;">
-  <div style="color:#7A96B0; font-size:0.75rem;
-              letter-spacing:0.1em; margin-bottom:6px;">
+<div style="margin-top:16px; margin-bottom:8px;
+            background:#0a1929; border:1.5px solid #C9A84C;
+            border-radius:10px; padding:16px 20px;">
+  <div style="color:#C9A84C; font-size:0.72rem;
+              letter-spacing:0.15em; font-weight:600;
+              margin-bottom:10px;">
     IHRE ANTWORT
   </div>
 </div>
