@@ -1276,18 +1276,29 @@ def _sparring_llm_response() -> None:
 
         system = (
             "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
-            "Führe ein strukturiertes Gespräch auf Deutsch.\n\n"
+            "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
             f"BEREITS BESTÄTIGT (nicht nochmals fragen):\n{pre_filled_summary}\n\n"
             f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
-            "REGELN:\n"
-            "- Maximal 2 Fragen pro Nachricht\n"
-            "- Bestätige erhaltene Informationen kurz\n"
+            "KOMMUNIKATIONSSTIL:\n"
+            "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
+            "- Erkläre IMMER kurz WARUM du diese Information benötigst\n"
+            "  Beispiel: 'Damit HelveVista Ihre alte Pensionskasse direkt "
+            "kontaktieren kann, benötigen wir deren E-Mail-Adresse.'\n"
+            "- Gruppiere logisch zusammengehörige Fragen:\n"
+            "  Gruppe 1: Name + Geburtsdatum (Identifikation)\n"
+            "  Gruppe 2: Alter Arbeitgeber + Ort + Austrittsdatum "
+            "(bisherige Anstellung)\n"
+            "  Gruppe 3: Neuer Arbeitgeber + Ort + Eintrittsdatum "
+            "(neue Anstellung)\n"
+            "  Gruppe 4: E-Mail alte PK + E-Mail neue PK "
+            "(für direkte Kontaktaufnahme)\n"
+            "- Maximal 1 Gruppe pro Nachricht\n"
+            "- Bestätige erhaltene Informationen kurz und freundlich\n"
             "- Frage NUR nach fehlenden Pflichtangaben\n"
-            "- Bei E-Mail-Adressen erkläre: 'Damit HelveVista die Institution "
-            "direkt kontaktieren kann.'\n"
-            "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf neuer "
-            "Zeile: [SPARRING_COMPLETE]\n"
-            "- Ausschliesslich Deutsch"
+            "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf "
+            "neuer Zeile: [SPARRING_COMPLETE]\n"
+            "- Ausschliesslich Deutsch\n"
+            "- Ton: professionell aber warm — wie ein erfahrener Berater"
         )
 
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -1376,39 +1387,127 @@ def _sparring_buddy_chat() -> None:
         )
 
     # C) DISPLAY CHAT MESSAGES
+    # ── Chat container header ─────────────────────────
+    collected_count = len([
+        v for v in st.session_state.sparring_collected.values() if v
+    ])
+    total_mandatory = len(MANDATORY_FIELDS)
+    progress_pct = min(int(collected_count / total_mandatory * 100), 100)
+
+    st.markdown(
+        f"""
+<div style="background:#0a1929; border:1.5px solid #1a3a5c;
+            border-radius:12px; padding:0; margin-bottom:8px;
+            overflow:hidden;">
+
+  <!-- Chat header bar -->
+  <div style="background:#0d2137; padding:12px 20px;
+              border-bottom:1px solid #1a3a5c;
+              display:flex; align-items:center; gap:12px;">
+    <div style="width:36px; height:36px; border-radius:50%;
+                background:#C9A84C; display:flex;
+                align-items:center; justify-content:center;
+                font-weight:700; font-size:0.85rem;
+                color:#0d1f2d; flex-shrink:0;">HV</div>
+    <div>
+      <div style="color:#FFFFFF; font-weight:600;
+                  font-size:0.95rem;">HelveVista</div>
+      <div style="color:#7A96B0; font-size:0.75rem;">
+        Persönlicher Vorsorge-Assistent</div>
+    </div>
+    <div style="margin-left:auto; text-align:right;">
+      <div style="color:#C9A84C; font-size:0.75rem;
+                  font-weight:600;">{collected_count}/{total_mandatory} Angaben</div>
+      <div style="background:#1a3a5c; border-radius:4px;
+                  height:4px; width:80px; margin-top:4px;">
+        <div style="background:#C9A84C; height:4px;
+                    border-radius:4px;
+                    width:{progress_pct}%;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages area -->
+  <div style="padding:16px 20px; max-height:420px;
+              overflow-y:auto; display:flex;
+              flex-direction:column; gap:12px;">
+""",
+        unsafe_allow_html=True,
+    )
+
     for msg in st.session_state.sparring_messages:
         if msg["role"] == "assistant":
             st.markdown(
-                f'<div style="background:#0d1f2d; border:1px solid #1a3a5c; '
-                f'border-radius:8px; padding:12px 16px; margin:4px 0; '
-                f'color:#e0e8f0; font-size:0.88rem;">{msg["content"]}</div>',
+                f"""
+<div style="display:flex; align-items:flex-start; gap:10px;">
+  <div style="width:28px; height:28px; border-radius:50%;
+              background:#C9A84C; display:flex;
+              align-items:center; justify-content:center;
+              font-weight:700; font-size:0.7rem;
+              color:#0d1f2d; flex-shrink:0; margin-top:2px;">HV</div>
+  <div style="background:#0d2137; border:1px solid #1e3d5c;
+              border-radius:4px 12px 12px 12px;
+              padding:12px 16px; max-width:85%;
+              color:#e0e8f0; font-size:0.9rem;
+              line-height:1.6;">
+    {msg["content"]}
+  </div>
+</div>
+""",
                 unsafe_allow_html=True,
             )
         elif msg["role"] == "user":
             st.markdown(
-                f'<div style="background:#12231a; border:1px solid #C9A84C; '
-                f'border-radius:8px; padding:12px 16px; margin:4px 0; '
-                f'color:#ffffff; font-size:0.88rem; text-align:right;">{msg["content"]}</div>',
+                f"""
+<div style="display:flex; justify-content:flex-end;">
+  <div style="background:#1a2d1a; border:1px solid #C9A84C;
+              border-radius:12px 4px 12px 12px;
+              padding:12px 16px; max-width:80%;
+              color:#ffffff; font-size:0.9rem;
+              line-height:1.6;">
+    {msg["content"]}
+  </div>
+</div>
+""",
                 unsafe_allow_html=True,
             )
 
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
     # D) INPUT (only if not complete)
     if not st.session_state.sparring_complete:
+        st.markdown(
+            """
+<div style="margin-top:8px;">
+  <div style="color:#7A96B0; font-size:0.75rem;
+              letter-spacing:0.1em; margin-bottom:6px;">
+    IHRE ANTWORT
+  </div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
         col_in, col_btn = st.columns([5, 1])
         with col_in:
             user_input = st.text_input(
                 "",
-                placeholder="Ihre Antwort…",
+                placeholder="Schreiben Sie hier Ihre Antwort…",
                 key="sparring_input",
                 label_visibility="collapsed",
             )
         with col_btn:
-            send = st.button("Senden", key="sparring_send", use_container_width=True)
+            send = st.button(
+                "Senden",
+                key="sparring_send",
+                type="primary",
+                use_container_width=True,
+            )
         if send and user_input.strip():
             st.session_state.sparring_messages.append(
                 {"role": "user", "content": user_input.strip()}
             )
-            _sparring_llm_response()
+            with st.spinner("HelveVista schreibt…"):
+                _sparring_llm_response()
             st.rerun()
 
     # E) COMPLETION
