@@ -1322,7 +1322,9 @@ def _sparring_llm_response() -> None:
 
         # Re-extract structured info from full conversation
         extracted = _sparring_extract_info(st.session_state.sparring_messages)
-        st.session_state.sparring_collected.update(extracted)
+        for k, v in extracted.items():
+            if v is not None:
+                st.session_state.sparring_collected[k] = v
 
         # Re-check if now complete after extraction
         still_missing = [f for f in MANDATORY_FIELDS if not st.session_state.sparring_collected.get(f)]
@@ -1347,44 +1349,64 @@ def _sparring_buddy_chat() -> None:
     case = _load_case() or st.session_state.case
     vorsorge = case.get("vorsorge_ausweis", {})
 
-    # B) PRE-FILL FROM VORSORGE — only on first call (no messages yet)
+    # B) PRE-FILL FROM VORSORGE — runs every render,
+    #    only injects keys not yet in sparring_collected
+    needs_update = False
+    if vorsorge:
+        for v_key, s_key in VORSORGE_TO_SPARRING.items():
+            val = vorsorge.get(v_key)
+            if val and not st.session_state.sparring_collected.get(s_key):
+                st.session_state.sparring_collected[s_key] = val
+                needs_update = True
+
+    collected = st.session_state.sparring_collected
+    confirmed_list = [
+        FIELD_LABELS_DE.get(k, k)
+        for k in FIELD_LABELS_DE
+        if collected.get(k)
+    ]
+    still_missing = [
+        FIELD_LABELS_DE.get(f, f)
+        for f in MANDATORY_FIELDS
+        if not collected.get(f)
+    ]
+
+    # Opening message — only if no messages yet
     if not st.session_state.sparring_messages:
-        if vorsorge:
-            for v_key, s_key in VORSORGE_TO_SPARRING.items():
-                val = vorsorge.get(v_key)
-                if val:
-                    st.session_state.sparring_collected[s_key] = val
-
-        collected = st.session_state.sparring_collected
-        confirmed_list = [
-            FIELD_LABELS_DE.get(k, k)
-            for k in FIELD_LABELS_DE
-            if collected.get(k)
-        ]
-        still_missing = [
-            FIELD_LABELS_DE.get(f, f)
-            for f in MANDATORY_FIELDS
-            if not collected.get(f)
-        ]
-
         if confirmed_list:
             opening = (
-                "Guten Tag! Ich habe Ihren Vorsorgeausweis bereits gelesen. "
-                f"Folgende Angaben sind bereits erfasst: "
+                "Guten Tag! Ich habe Ihren Vorsorgeausweis bereits "
+                "gelesen. Folgende Angaben sind bereits erfasst: "
                 f"{', '.join(confirmed_list)}. "
-                f"Ich benötige noch: {', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
+                "Ich benötige noch: "
+                f"{', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
                 "Dürfen wir beginnen?"
             )
         else:
             opening = (
                 "Guten Tag! Ich bin HelveVista, Ihr persönlicher "
-                "Vorsorge-Assistent. Um Ihren Stellenwechsel korrekt zu "
-                "koordinieren, benötige ich einige Angaben. "
+                "Vorsorge-Assistent. Sie können optional Ihren "
+                "Vorsorgeausweis hochladen — ich lese ihn automatisch "
+                "und spare Ihnen viele Fragen. "
                 "Wie heissen Sie vollständig?"
             )
         st.session_state.sparring_messages.append(
             {"role": "assistant", "content": opening}
         )
+    elif needs_update and len(st.session_state.sparring_messages) == 1:
+        # PDF uploaded after opening message — refresh it
+        updated_opening = (
+            "Guten Tag! Ich habe Ihren Vorsorgeausweis soeben gelesen. "
+            "Folgende Angaben sind bereits erfasst: "
+            f"{', '.join(confirmed_list)}. "
+            "Ich benötige noch: "
+            f"{', '.join(still_missing) if still_missing else 'keine weiteren Angaben'}. "
+            "Dürfen wir beginnen?"
+        )
+        st.session_state.sparring_messages[0] = {
+            "role": "assistant",
+            "content": updated_opening,
+        }
 
     # C) DISPLAY CHAT MESSAGES
     # ── Chat container header ─────────────────────────
@@ -1490,7 +1512,7 @@ def _sparring_buddy_chat() -> None:
         col_in, col_btn = st.columns([5, 1])
         with col_in:
             user_input = st.text_input(
-                "",
+                "Ihre Antwort",
                 placeholder="Schreiben Sie hier Ihre Antwort…",
                 key="sparring_input",
                 label_visibility="collapsed",
