@@ -1163,6 +1163,13 @@ MANDATORY_FIELDS = [
     "email_neue_pk",
 ]
 
+MANDATORY_FIELDS_AVS = [
+    "name",
+    "geburtsdatum",
+    "ahv_nummer",
+    "grund_der_anfrage",
+]
+
 VORSORGE_TO_SPARRING = {
     "name":                   "name",
     "ahv_nummer":             "ahv_nummer",
@@ -1186,6 +1193,8 @@ FIELD_LABELS_DE = {
     "ahv_nummer":             "AHV-Nummer",
     "freizuegigkeit_chf":     "Freizügigkeitsguthaben",
     "koordinationsabzug_chf": "Koordinationsabzug",
+    "geburtsdatum":           "Geburtsdatum",
+    "grund_der_anfrage":      "Grund der AHV-Anfrage",
 }
 
 
@@ -1278,9 +1287,18 @@ def _sparring_llm_response() -> None:
     try:
         collected = st.session_state.sparring_collected
 
-        # Build missing list — exclude fields already pre-filled from vorsorge
+        # Build missing list — scenario-aware, exclude pre-filled fields
+        scenario = st.session_state.get(
+            "selected_scenario", "stellenwechsel"
+        )
+        active_fields = (
+            MANDATORY_FIELDS_AVS
+            if scenario == "revue_avs"
+            else MANDATORY_FIELDS
+        )
         missing_list = [
-            f for f in MANDATORY_FIELDS
+            FIELD_LABELS_DE.get(f, f)
+            for f in active_fields
             if not collected.get(f)
         ]
 
@@ -1288,16 +1306,16 @@ def _sparring_llm_response() -> None:
             st.session_state.sparring_complete = True
             return
 
-        pre_filled_summary = ", ".join(
-            f"{FIELD_LABELS_DE.get(k, k)}: {v}"
+        pre_filled_summary = "\n".join(
+            f"  ✓ {FIELD_LABELS_DE.get(k, k)}: {v}"
             for k, v in collected.items()
             if v
-        ) or "keine"
+        ) or "  (keine vorausgefüllten Daten)"
 
         system = (
             "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
             "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
-            f"BEREITS BESTÄTIGT (nicht nochmals fragen):\n{pre_filled_summary}\n\n"
+            f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
             f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
             "KOMMUNIKATIONSSTIL:\n"
             "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
