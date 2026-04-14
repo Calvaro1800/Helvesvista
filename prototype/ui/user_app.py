@@ -1741,21 +1741,36 @@ def _vs_step_3_akteure() -> None:
     _render_steps(3)
 
     st.markdown('<div class="hv-label">Schritt 3 von 6</div>', unsafe_allow_html=True)
-    st.markdown("## Beteiligte Institutionen")
-    st.markdown(
-        "HelveVista hat folgende Institutionen für Ihren Fall identifiziert. "
-        "Alte und neue Pensionskasse sind für den Stellenwechsel obligatorisch."
-    )
-
     ctx       = st.session_state.structured_ctx
     suggested = set(ctx.get("actors_enum", [Actor.OLD_PK, Actor.NEW_PK]))
+    scenario  = st.session_state.get("selected_scenario", "stellenwechsel")
+
+    st.markdown("## Beteiligte Institutionen")
+    if scenario == "revue_avs":
+        st.markdown(
+            "HelveVista koordiniert Ihre AHV-Anfrage direkt mit der "
+            "zuständigen Ausgleichskasse."
+        )
+    else:
+        st.markdown(
+            "HelveVista hat folgende Institutionen für Ihren Fall identifiziert. "
+            "Alte und neue Pensionskasse sind für den Stellenwechsel obligatorisch."
+        )
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
     selected: dict[Actor, bool] = {}
     for actor in Actor:
-        mandatory = actor in {Actor.OLD_PK, Actor.NEW_PK}
-        is_sug    = actor in suggested
+        # For revue_avs: only show AVS, hide PK actors
+        if scenario == "revue_avs" and actor != Actor.AVS:
+            continue
+
+        if scenario == "revue_avs":
+            mandatory = True  # AVS is mandatory for revue_avs
+            is_sug    = True
+        else:
+            mandatory = actor in {Actor.OLD_PK, Actor.NEW_PK}
+            is_sug    = actor in suggested
         label     = ACTOR_LABELS[actor]
         desc      = ACTOR_DESCRIPTIONS[actor]
 
@@ -1801,6 +1816,8 @@ def _vs_step_3_akteure() -> None:
     }
     saved_emails = _load_case().get("institution_emails", {})
     for actor in Actor:
+        if scenario == "revue_avs" and actor != Actor.AVS:
+            continue
         if selected.get(actor):
             default_email = saved_emails.get(
                 actor.value,
