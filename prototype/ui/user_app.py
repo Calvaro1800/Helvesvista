@@ -1175,6 +1175,7 @@ MANDATORY_FIELDS = [
     "eintrittsdatum",
     "email_alte_pk",
     "email_neue_pk",
+    "situation_beschreibung",
 ]
 
 MANDATORY_FIELDS_AVS = [
@@ -1182,6 +1183,7 @@ MANDATORY_FIELDS_AVS = [
     "geburtsdatum",
     "ahv_nummer",
     "grund_der_anfrage",
+    "situation_beschreibung",
 ]
 
 VORSORGE_TO_SPARRING = {
@@ -1217,6 +1219,7 @@ FIELD_LABELS_DE = {
     "koordinationsabzug_chf": "Koordinationsabzug",
     "geburtsdatum":           "Geburtsdatum",
     "grund_der_anfrage":      "Grund der AHV-Anfrage",
+    "situation_beschreibung": "Beschreibung der Situation",
 }
 
 
@@ -1246,7 +1249,8 @@ def _sparring_extract_info(messages: list) -> dict:
             '  "email_neue_pk": null,\n'
             '  "freizuegigkeit_chf": null,\n'
             '  "koordinationsabzug_chf": null,\n'
-            '  "versicherter_lohn": null\n'
+            '  "versicherter_lohn": null,\n'
+            '  "situation_beschreibung": null\n'
             "}\n"
             "Setze null wenn nicht erwähnt. Nur JSON."
         )
@@ -1339,6 +1343,11 @@ def _sparring_llm_response() -> None:
             "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
             f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
             f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
+            "WICHTIG: Der Nutzer muss IMMER seine Situation in "
+            "eigenen Worten beschreiben (Feld: Beschreibung der "
+            "Situation). Frage danach ZULETZT, nachdem alle anderen "
+            "Pflichtfelder gesammelt wurden. Ohne diese Beschreibung "
+            "ist der Fall NICHT vollständig.\n\n"
             "KOMMUNIKATIONSSTIL:\n"
             "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
             "- Erkläre IMMER kurz WARUM du diese Information benötigst\n"
@@ -1387,7 +1396,7 @@ def _sparring_llm_response() -> None:
                 st.session_state.sparring_collected[k] = v
 
         # Re-check if now complete after extraction
-        still_missing = [f for f in MANDATORY_FIELDS if not st.session_state.sparring_collected.get(f)]
+        still_missing = [f for f in active_fields if not st.session_state.sparring_collected.get(f)]
         if not still_missing:
             st.session_state.sparring_complete = True
 
