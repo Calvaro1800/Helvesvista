@@ -1016,23 +1016,37 @@ def _extract_doc_info(uploaded_files: list) -> dict:
     })
 
     system_prompt = (
-        "Du bist ein Vorsorge-Datenextraktor. Extrahiere aus dem Dokument "
-        "ausschliesslich folgende Informationen falls vorhanden.\n"
-        "Verwende EXAKT diese JSON-Schlüsselnamen:\n"
-        "- \"name\": Name der versicherten Person\n"
-        "- \"ahv_nummer\": AHV-Nummer\n"
-        "- \"pensionskasse\": Name und Adresse der Pensionskasse\n"
-        "- \"freizuegigkeit_chf\": Freizügigkeitsguthaben als Zahl (CHF)\n"
-        "- \"koordinationsabzug_chf\": BVG-Koordinationsabzug als Zahl (CHF)\n"
-        "- \"austrittsdatum\": Austrittsdatum (Text)\n"
-        "- \"eintrittsdatum\": Eintrittsdatum (Text)\n"
-        "- \"email\": E-Mail der Institution\n"
-        "- \"telefon\": Telefon der Institution\n"
-        "Extrahiere NUR Werte, die explizit im Dokument vorhanden sind. "
-        "Wenn ein Wert nicht gefunden wird, gib null zurück. "
-        "Erfinde oder extrapoliere keine fehlenden Angaben. "
-        "Antworte NUR mit validem JSON. "
-        "Zahlen als Zahl (nicht als String). Keine Erklärungen."
+        "Analysiere dieses Dokument (Vorsorgeausweis oder ähnliches) "
+        "und extrahiere alle verfügbaren Informationen. "
+        "Antworte NUR mit JSON, kein Text davor oder danach:\n"
+        "{\n"
+        '  "name": null,\n'
+        '  "geburtsdatum": null,\n'
+        '  "ahv_nummer": null,\n'
+        '  "pensionskasse": null,\n'
+        '  "arbeitgeber": null,\n'
+        '  "arbeitgeber_ort": null,\n'
+        '  "freizuegigkeit_chf": null,\n'
+        '  "koordinationsabzug_chf": null,\n'
+        '  "austrittsdatum": null,\n'
+        '  "eintrittsdatum": null,\n'
+        '  "email": null,\n'
+        '  "telefon": null\n'
+        "}\n"
+        "Wichtig:\n"
+        "- 'name': Vollständiger Name der versicherten Person\n"
+        "- 'geburtsdatum': Geburtsdatum der versicherten Person\n"
+        "- 'ahv_nummer': AHV-/AVS-Nummer (Format 756.XXXX.XXXX.XX)\n"
+        "- 'pensionskasse': Name der Pensionskasse/Vorsorgeeinrichtung\n"
+        "- 'arbeitgeber': Name des Arbeitgebers/Unternehmens\n"
+        "- 'arbeitgeber_ort': Ort/Stadt des Arbeitgebers\n"
+        "- 'freizuegigkeit_chf': Freizügigkeitsguthaben als Zahl ohne Währung\n"
+        "- 'koordinationsabzug_chf': Koordinationsabzug als Zahl ohne Währung\n"
+        "- 'austrittsdatum': Austrittsdatum als Text\n"
+        "- 'eintrittsdatum': Eintrittsdatum als Text\n"
+        "- 'email': E-Mail-Adresse der Institution\n"
+        "- 'telefon': Telefonnummer der Institution\n"
+        "Setze null wenn nicht im Dokument vorhanden. Nur JSON."
     )
 
     try:
