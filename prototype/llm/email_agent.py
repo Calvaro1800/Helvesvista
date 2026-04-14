@@ -190,19 +190,26 @@ _EMAIL_FOOTER = (
 
 # ── Claude system prompt for reply parsing ─────────────────────────────────────
 
-_PARSE_SYSTEM = """\
-Du bist ein Vorsorge-Datenextraktor. Extrahiere aus dieser \
-E-Mail-Antwort einer Schweizer Pensionskasse die relevanten Daten.
-Akteur: {actor_value}
-Antworte NUR als JSON:
-- OLD_PK: freizuegigkeit_chf (int), austrittsdatum (str DD.MM.YYYY), \
-status (str)
-- NEW_PK: eintrittsdatum (str DD.MM.YYYY), \
-bvg_koordinationsabzug (int), bvg_pflicht (bool)
-- AVS: ik_auszug_verfuegbar (bool), ahv_nummer (str), \
-beitragsjahre (int), luecken (int), status (str)
-Nur JSON, kein Text.\
-"""
+_PARSE_SYSTEM = (
+    "Du bist ein Schweizer Vorsorge-Datenextraktor.\n"
+    "Extrahiere aus dieser E-Mail die relevanten Daten.\n"
+    "Akteur: {actor_value}\n\n"
+    "Antworte AUSSCHLIESSLICH mit einem JSON-Objekt.\n"
+    "KEIN Text vor oder nach dem JSON. KEINE Erklärungen.\n"
+    "KEIN Markdown. Nur das JSON-Objekt selbst.\n\n"
+    "Felder je nach Akteur:\n"
+    "- OLD_PK: freizuegigkeit_chf (int), austrittsdatum "
+    "(str DD.MM.YYYY), status (str)\n"
+    "- NEW_PK: eintrittsdatum (str DD.MM.YYYY), "
+    "bvg_koordinationsabzug (int), bvg_pflicht (bool)\n"
+    "- AVS: ik_auszug_verfuegbar (bool), ahv_nummer (str), "
+    "beitragsjahre (int), luecken (int), status (str)\n\n"
+    "Falls ein Wert nicht vorhanden: null.\n"
+    "Beispiel OLD_PK: "
+    '{{"freizuegigkeit_chf": 89450, '
+    '"austrittsdatum": "31.03.2026", '
+    '"status": "Austritt bestätigt"}}'
+)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -506,11 +513,18 @@ def parse_institution_reply(
     try:
         message = client.messages.create(
             model      = "claude-sonnet-4-6",
-            max_tokens = 256,
+            max_tokens = 512,
             system     = system,
             messages   = [{"role": "user", "content": email_body[:4000]}],
         )
         raw = message.content[0].text.strip()
+        # Strip markdown code fences if present
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        # Find the first { and last } to extract pure JSON
+        start = raw.find("{")
+        end   = raw.rfind("}")
+        if start != -1 and end != -1:
+            raw = raw[start:end+1]
         return json.loads(raw)
     except Exception:  # noqa: BLE001
         return {"raw_reply": email_body}
