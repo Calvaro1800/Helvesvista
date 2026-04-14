@@ -474,7 +474,12 @@ def _save_case(state: dict) -> None:
     try:
         from core.mongodb_client import save_case as mongo_save
         _case_id = st.session_state.get("case_id", "UNKNOWN")
-        _email = state.get("email") or state.get("user_email", "unknown")
+        _email = (
+            st.session_state.get("user_email")
+            or state.get("user_email")
+            or state.get("email")
+            or "unknown"
+        )
         _scenario = st.session_state.get("selected_scenario", "stellenwechsel")
         _status = state.get("status", "EN_COURS")
         mongo_save(_case_id, _email, _scenario, _status, state)
