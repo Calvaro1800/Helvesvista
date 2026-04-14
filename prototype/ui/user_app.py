@@ -4667,8 +4667,8 @@ def _scenario_selection_page() -> None:
   <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
              letter-spacing:0.03em; margin:0 0 0.55rem 0;">Revue AVS</p>
   <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0;">
-    Vérification de votre situation AVS — IK-Auszug,
-    cotisations, lacunes et projection de rente.
+    Überprüfung Ihrer AHV-Situation — IK-Auszug,
+    Beitragsjahre, Lücken und Rentenprojektion.
   </p>
 </div>
             """,
@@ -4717,8 +4717,8 @@ def _scenario_selection_page() -> None:
   <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
              letter-spacing:0.03em; margin:0 0 0.55rem 0;">Pensionierung</p>
   <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
-    Coordination complète de votre retraite —
-    AVS, LPP et pilier 3a pour une transition optimale.
+    Koordination Ihrer Pensionierung —
+    AHV, BVG und Säule 3a für einen optimalen Übertritt.
   </p>
   <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
     In Entwicklung
