@@ -1479,10 +1479,17 @@ def _sparring_buddy_chat() -> None:
 
     # C) DISPLAY CHAT MESSAGES
     # ── Chat container header ─────────────────────────
+    collected = st.session_state.sparring_collected
+    scenario = st.session_state.get("selected_scenario", "stellenwechsel")
+    active_fields = (
+        MANDATORY_FIELDS_AVS
+        if scenario == "revue_avs"
+        else MANDATORY_FIELDS
+    )
+    total_mandatory = len(active_fields)
     collected_count = len([
-        v for v in st.session_state.sparring_collected.values() if v
+        f for f in active_fields if collected.get(f)
     ])
-    total_mandatory = len(MANDATORY_FIELDS)
     progress_pct = min(int(collected_count / total_mandatory * 100), 100)
 
     st.markdown(
