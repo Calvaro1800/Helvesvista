@@ -4661,22 +4661,28 @@ def _scenario_selection_page() -> None:
     with col2:
         st.markdown(
             """
-<div style="background:#0d1f2d; border:1px solid #1a3a5c;
-            border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
-  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A7A9A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+<div style="background:#0d1f2d; border:1.5px solid #C9A84C;
+            border-radius:10px; padding:24px; min-height:180px;">
+  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9A84C" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
   <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
-             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Pensionierung</p>
-  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
-    Koordination aller Vorsorgeeinrichtungen
-    für einen optimalen Übertritt in den Ruhestand.
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Revue AVS</p>
+  <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0;">
+    Vérification de votre situation AVS — IK-Auszug,
+    cotisations, lacunes et projection de rente.
   </p>
-  <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
-    In Entwicklung
-  </span>
 </div>
             """,
             unsafe_allow_html=True,
         )
+        st.markdown("<div style='margin-top:6px;'></div>", unsafe_allow_html=True)
+        if st.button(
+            "Jetzt starten",
+            key="btn_revue_avs",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.selected_scenario = "revue_avs"
+            st.rerun()
 
     # ── Row 2 ─────────────────────────────────────────────────────────────────
     st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
@@ -4687,12 +4693,12 @@ def _scenario_selection_page() -> None:
             """
 <div style="background:#0d1f2d; border:1px solid #1a3a5c;
             border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
-  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A7A9A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A7A9A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
   <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
-             letter-spacing:0.03em; margin:0 0 0.55rem 0;">AHV / Zivilstandsänderung</p>
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Zivilstandsänderung</p>
   <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
-    Meldung von Adress- oder Zivilstandsänderungen
-    an die zuständige AHV-Ausgleichskasse.
+    Meldung einer Heirat, Scheidung oder eines
+    Todesfalls an die zuständigen Vorsorgeeinrichtungen.
   </p>
   <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
     In Entwicklung
@@ -4707,12 +4713,12 @@ def _scenario_selection_page() -> None:
             """
 <div style="background:#0d1f2d; border:1px solid #1a3a5c;
             border-radius:10px; padding:24px; min-height:180px; opacity:0.45;">
-  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A7A9A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg></div>
+  <div style="margin-bottom:10px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5A7A9A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
   <p style="color:#FFFFFF; font-size:1.05rem; font-weight:600;
-             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Scheidung / Gütertrennung</p>
+             letter-spacing:0.03em; margin:0 0 0.55rem 0;">Pensionierung</p>
   <p style="color:#7A96B0; font-size:0.84rem; line-height:1.65; margin:0 0 0.85rem 0;">
-    Koordination der Aufteilung von Vorsorgevermögen
-    im Rahmen einer Scheidung.
+    Coordination complète de votre retraite —
+    AVS, LPP et pilier 3a pour une transition optimale.
   </p>
   <span style="color:#5A7A9A; font-size:0.78rem; letter-spacing:0.1em;">
     In Entwicklung
