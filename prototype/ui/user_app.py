@@ -1171,13 +1171,21 @@ MANDATORY_FIELDS_AVS = [
 ]
 
 VORSORGE_TO_SPARRING = {
+    # Identity
     "name":                   "name",
+    "geburtsdatum":           "geburtsdatum",
     "ahv_nummer":             "ahv_nummer",
+    # Old employer / old PK
+    "arbeitgeber":            "alter_arbeitgeber",
+    "arbeitgeber_ort":        "alter_arbeitgeber_ort",
+    "austrittsdatum":         "austrittsdatum",
+    "email":                  "email_alte_pk",
+    # Financial data
     "freizuegigkeit_chf":     "freizuegigkeit_chf",
     "koordinationsabzug_chf": "koordinationsabzug_chf",
-    "austrittsdatum":         "austrittsdatum",
+    # New employer (if present in Vorsorgeausweis)
+    "neuer_arbeitgeber":      "neuer_arbeitgeber",
     "eintrittsdatum":         "eintrittsdatum",
-    "email":                  "email_alte_pk",
 }
 
 FIELD_LABELS_DE = {
