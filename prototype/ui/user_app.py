@@ -462,10 +462,23 @@ def _load_case() -> dict:
 
 def _save_case(state: dict) -> None:
     """Write case_state.json (best-effort; silently swallows IO errors)."""
+    # Ensure a stable case_id exists before writing
+    if not st.session_state.get("case_id"):
+        st.session_state.case_id = str(uuid.uuid4())[:8].upper()
     try:
         with open(CASE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f, ensure_ascii=False, indent=2)
     except IOError:
+        pass
+    # Sync to MongoDB Atlas (non-blocking)
+    try:
+        from core.mongodb_client import save_case as mongo_save
+        _case_id = st.session_state.get("case_id", "UNKNOWN")
+        _email = state.get("email") or state.get("user_email", "unknown")
+        _scenario = st.session_state.get("selected_scenario", "stellenwechsel")
+        _status = state.get("status", "EN_COURS")
+        mongo_save(_case_id, _email, _scenario, _status, state)
+    except Exception:
         pass
 
 
@@ -538,6 +551,8 @@ def _init_session() -> None:
         "sparring_complete":   False,
         "sparring_situation":  "",
         "sparring_collected":  {},
+        # MongoDB case tracking
+        "case_id":             None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -2354,9 +2369,13 @@ def _vs_step_5_ergebnis() -> None:
             if state == ActorState.COMPLETED and resp:
                 st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
-                if "raw_reply" in resp:
-                    st.info(resp["raw_reply"])
-                elif actor == Actor.OLD_PK:
+                def _gold(label: str, value: str) -> None:
+                    st.markdown(
+                        f'<span style="color:#C9A84C;font-weight:600;">{label}:</span> {value}',
+                        unsafe_allow_html=True,
+                    )
+
+                if actor == Actor.OLD_PK:
                     case = _load_case()
                     inst_resp = case.get("institution_responses", {})
                     vorsorge = case.get("vorsorge_ausweis", {})
@@ -2365,35 +2384,34 @@ def _vs_step_5_ergebnis() -> None:
                         or vorsorge.get("freizuegigkeit_chf")
                         or vorsorge.get("gesamtguthaben_chf")
                     )
-                    st.markdown(f"Freizügigkeitsguthaben: **{_fmt_chf(chf)}**")
-                    st.markdown(f"Austrittsdatum: **{_fmt_date(resp.get('austrittsdatum'))}**")
-                    st.markdown(f"Status: **{_fmt_status(resp.get('status'))}**")
+                    _gold("Freizügigkeitsguthaben", _fmt_chf(chf))
+                    _gold("Austrittsdatum", _fmt_date(resp.get("austrittsdatum")))
+                    _gold("Status", _fmt_status(resp.get("status")))
 
                 elif actor == Actor.NEW_PK:
-                    st.markdown(f"Eintrittsdatum: **{_fmt_date(resp.get('eintrittsdatum'))}**")
                     koord = (
                         resp.get("bvg_koordinationsabzug")
                         or vorsorge.get("koordinationsabzug_chf")
                         or vorsorge.get("bvg_koordinationsabzug")
                     )
-                    st.markdown(f"BVG-Koordinationsabzug: **{_fmt_chf(koord)}**")
-                    pflicht = "Ja" if resp.get("bvg_pflicht") else "Nein"
-                    st.markdown(f"BVG-Pflicht: **{pflicht}**")
+                    _gold("Eintrittsdatum", _fmt_date(resp.get("eintrittsdatum")))
+                    _gold("BVG-Koordinationsabzug", _fmt_chf(koord))
+                    _gold("BVG-Pflicht", "Ja" if resp.get("bvg_pflicht") else "Nein")
 
                 elif actor == Actor.AVS:
                     ik_ok = resp.get("ik_auszug_verfuegbar") or (resp.get("ik_auszug") == "verfügbar")
-                    st.markdown(f"IK-Auszug verfügbar: **{'Ja' if ik_ok else 'Nein'}**")
+                    _gold("IK-Auszug verfügbar", "Ja" if ik_ok else "Nein")
                     ahv = resp.get("ahv_nummer") or vorsorge.get("ahv_nummer")
                     if ahv:
-                        st.markdown(f"AHV-Nummer: **{ahv}**")
+                        _gold("AHV-Nummer", str(ahv))
                     jahre = resp.get("beitragsjahre")
-                    st.markdown(f"Beitragsjahre: **{_fmt_str(jahre)}**")
+                    _gold("Beitragsjahre", _fmt_str(jahre))
                     luecken = resp.get("luecken")
                     if luecken is not None:
-                        st.markdown(f"Beitragslücken: **{luecken}**")
+                        _gold("Beitragslücken", str(luecken))
                     status_avs = resp.get("status")
                     if status_avs:
-                        st.markdown(f"Status: **{status_avs}**")
+                        _gold("Status", str(status_avs))
 
             elif state == ActorState.ESCALATED:
                 st.caption("Keine gültige Antwort erhalten — Eskalation ist erforderlich.")
@@ -2850,25 +2868,42 @@ def _chat_llm_answer(question: str, case: dict) -> str:
     """Call Claude API with full case context incl. situation + vorsorge_ausweis."""
     import anthropic
 
-    user_name      = case.get("user_name", "")
-    situation_text = case.get("situation", "")
-    vorsorge       = case.get("vorsorge_ausweis", {})
-    inst_responses = case.get("institution_responses", {})
-
-    system_prompt = (
-        "Du bist HelveVista. Beantworte Fragen NUR auf Basis dieser Falldaten:\n\n"
-        f"Versicherter: {user_name}\n"
-        f"Situation: {situation_text}\n\n"
-        "Vorsorgeausweis-Daten:\n"
-        f"{json.dumps(vorsorge, ensure_ascii=False, indent=2)}\n\n"
-        "Antworten der Institutionen:\n"
-        f"{json.dumps(inst_responses, ensure_ascii=False, indent=2)}\n\n"
-        "Wenn die Frage mit diesen Daten beantwortet werden kann, antworte direkt. "
-        "Antworte auf Deutsch, max 2 Sätze, ohne Erfindungen. "
-        "Wenn die Frage NICHT mit diesen Daten beantwortet werden kann, antworte: "
-        "'AUSSERHALB_DES_FALLS: Diese Information liegt mir für Ihren Fall nicht vor. "
-        "Bitte kontaktieren Sie die zuständige Institution direkt.'"
+    user_name        = case.get("user_name", "")
+    situation_text   = case.get("situation", "")
+    vorsorge         = case.get("vorsorge_ausweis", {})
+    inst_responses   = case.get("institution_responses", {})
+    actors_data      = case.get("actors", {})
+    sparring_data    = case.get(
+        "sparring_collected",
+        st.session_state.get("sparring_collected", {}),
     )
+
+    system_prompt = f"""Du bist HelveVista, ein Schweizer Vorsorge-Assistent.
+Du beantwortest Fragen des Versicherten zu seinem konkreten Fall. Antworte ausschliesslich auf Deutsch.
+
+FALLDATEN:
+Versicherter: {user_name}
+Situation: {situation_text}
+
+VORSORGEAUSWEIS-DATEN:
+{json.dumps(vorsorge, ensure_ascii=False, indent=2)}
+
+ANTWORTEN DER INSTITUTIONEN:
+{json.dumps(inst_responses, ensure_ascii=False, indent=2)}
+
+KOORDINATIONSSTATUS:
+{json.dumps(actors_data, ensure_ascii=False, indent=2)}
+
+GESAMMELTE INFORMATIONEN (Sparring):
+{json.dumps(sparring_data, ensure_ascii=False, indent=2)}
+
+REGELN:
+1. Beantworte NUR Fragen die sich auf diesen Fall beziehen
+2. Nutze die obigen Daten um konkrete, genaue Antworten zu geben
+3. Wenn eine Information wirklich nicht im Fall vorhanden ist, sage es klar — aber prüfe ALLE Datenfelder zuerst
+4. Antworte präzise und hilfreich — keine generischen Antworten, max 2-3 Sätze
+5. Verwende CHF-Beträge und Daten aus den Falldaten wenn vorhanden
+6. Trigger AUSSERHALB_DES_FALLS NUR wenn die Frage wirklich nichts mit diesem konkreten Fall zu tun hat"""
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
     msg = client.messages.create(
         model="claude-sonnet-4-20250514",
@@ -4461,6 +4496,109 @@ def _show_onboarding() -> None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# CASE DASHBOARD — shows prior cases for logged-in users
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _case_dashboard() -> None:
+    """Show existing cases for the logged-in user."""
+    try:
+        from core.mongodb_client import list_cases, delete_case
+        user_email = st.session_state.get("user_email", "")
+        if not user_email:
+            return
+        cases = list_cases(user_email)
+        if not cases:
+            return
+
+        st.markdown(
+            """
+<p style="color:#C9A84C; font-size:0.65rem; letter-spacing:0.3em;
+          font-weight:500; text-transform:uppercase; margin-bottom:12px;">
+  IHRE LAUFENDEN FÄLLE
+</p>
+""",
+            unsafe_allow_html=True,
+        )
+
+        for c in cases:
+            status = c.get("status", "EN_COURS")
+            scenario = c.get("scenario", "stellenwechsel")
+            updated = c.get("updated_at")
+            case_id = c.get("case_id", "")
+            data = c.get("data", {})
+            situation = data.get("situation", "")
+            preview = situation[:50] + "…" if situation else case_id
+
+            status_colors = {
+                "COMPLETED": "#6fcf97",
+                "ESCALATED": "#eb5757",
+                "EN_COURS": "#C9A84C",
+            }
+            status_color = status_colors.get(status, "#7A96B0")
+
+            date_str = ""
+            if updated:
+                try:
+                    date_str = updated.strftime("%d.%m.%Y %H:%M")
+                except Exception:
+                    date_str = str(updated)[:16]
+
+            col_info, col_resume, col_delete = st.columns([5, 1, 1])
+
+            with col_info:
+                st.markdown(
+                    f"""
+<div style="background:#0d1f2d; border:1px solid #1a3a5c;
+            border-radius:8px; padding:12px 16px; margin-bottom:8px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span style="background:{status_color}22; color:{status_color};
+                 border:1px solid {status_color}; border-radius:4px;
+                 padding:2px 8px; font-size:0.7rem;
+                 letter-spacing:0.05em;">{status}</span>
+    <span style="color:#FFFFFF; font-size:0.88rem;
+                 font-weight:500;">{scenario.upper()}</span>
+    <span style="color:#3E5F7A; font-size:0.78rem;
+                 margin-left:auto;">{date_str}</span>
+  </div>
+  <div style="color:#7A96B0; font-size:0.8rem;
+              margin-top:6px;">{preview}</div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+
+            with col_resume:
+                if st.button("Fortsetzen", key=f"resume_{case_id}",
+                             use_container_width=True):
+                    st.session_state.case_id = case_id
+                    st.session_state.case = data
+                    _save_case(data)
+                    st.session_state.vs_step = data.get("step", 1)
+                    st.session_state.onboarding_done = True
+                    st.rerun()
+
+            with col_delete:
+                if st.button("Löschen", key=f"delete_{case_id}",
+                             use_container_width=True):
+                    delete_case(case_id)
+                    st.rerun()
+
+        st.markdown(
+            """
+<hr style="border-color:#1a3a5c; margin:16px 0;"/>
+<p style="color:#3E5F7A; font-size:0.78rem;
+          text-align:center; margin-bottom:16px;">
+  Oder starten Sie einen neuen Fall:
+</p>
+""",
+            unsafe_allow_html=True,
+        )
+
+    except Exception:
+        pass
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # SCENARIO SELECTION — landing page shown once before entering the main flow
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -4615,6 +4753,11 @@ def main() -> None:
     if not st.session_state.logged_in:
         _page_login()
         return
+
+    # Show case dashboard if user has prior cases (before entering the main flow)
+    if (st.session_state.get("vs_step", 1) <= 1
+            and st.session_state.get("user_email")):
+        _case_dashboard()
 
     _render_sidebar()
 
