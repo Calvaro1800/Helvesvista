@@ -2262,11 +2262,14 @@ def _vs_step_4_koordination() -> None:
                             "institution_responses", {}
                         ).get(actor.value, {})
                         st.success(f"Antwort erhalten von {actor_label}")
-                        if "raw_reply" in parsed:
-                            st.info(parsed["raw_reply"])
-                        else:
-                            for k, v in parsed.items():
-                                st.caption(f"{k}: {v}")
+                        raw = parsed.get("raw_reply")
+                        structured = {k: v for k, v in parsed.items() if k != "raw_reply" and v is not None}
+                        if structured:
+                            for k, v in structured.items():
+                                st.caption(f"**{k}:** {v}")
+                        if raw:
+                            with st.expander("E-Mail-Antwort anzeigen", expanded=False):
+                                st.text(raw[:800])
 
         # Advance automatically once all activated actors have replied via email
         all_responded = all(
@@ -2465,6 +2468,10 @@ def _vs_step_5_ergebnis() -> None:
                     _gold("Freizügigkeitsguthaben", _fmt_chf(chf))
                     _gold("Austrittsdatum", _fmt_date(resp.get("austrittsdatum")))
                     _gold("Status", _fmt_status(resp.get("status")))
+                    raw = resp.get("raw_reply")
+                    if raw:
+                        with st.expander("E-Mail-Antwort", expanded=False):
+                            st.text(raw[:800])
 
                 elif actor == Actor.NEW_PK:
                     koord = (
@@ -2475,6 +2482,10 @@ def _vs_step_5_ergebnis() -> None:
                     _gold("Eintrittsdatum", _fmt_date(resp.get("eintrittsdatum")))
                     _gold("BVG-Koordinationsabzug", _fmt_chf(koord))
                     _gold("BVG-Pflicht", "Ja" if resp.get("bvg_pflicht") else "Nein")
+                    raw = resp.get("raw_reply")
+                    if raw:
+                        with st.expander("E-Mail-Antwort", expanded=False):
+                            st.text(raw[:800])
 
                 elif actor == Actor.AVS:
                     ik_ok = resp.get("ik_auszug_verfuegbar") or (resp.get("ik_auszug") == "verfügbar")
@@ -2490,6 +2501,10 @@ def _vs_step_5_ergebnis() -> None:
                     status_avs = resp.get("status")
                     if status_avs:
                         _gold("Status", str(status_avs))
+                    raw = resp.get("raw_reply")
+                    if raw:
+                        with st.expander("E-Mail-Antwort", expanded=False):
+                            st.text(raw[:800])
 
             elif state == ActorState.ESCALATED:
                 st.caption("Keine gültige Antwort erhalten — Eskalation ist erforderlich.")
