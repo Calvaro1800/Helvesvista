@@ -4708,11 +4708,21 @@ def _scenario_selection_page() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def main() -> None:
-    _inject_css()
+    import ui.hv_chat as hv_chat
+    import ui.hv_dashboard as hv_dashboard
+    import ui.hv_option_cards as hv_option_cards
+    import ui.hv_profile as hv_profile
+    import ui.hv_options.stellenwechsel_a as sw_a
+    import ui.hv_options.stellenwechsel_c as sw_c
+    import ui.hv_options.stellenwechsel_d as sw_d
+    import ui.hv_options.revue_avs_a as avs_a
+    import ui.hv_options.revue_avs_c as avs_c
+    import ui.hv_options.revue_avs_d as avs_d
+    # revue_avs_b is not imported: option B for both scenarios routes to the existing
+    # _vs_step_* flow directly — revue_avs_b.py exists for spec completeness only.
 
-    if not st.session_state.get("selected_scenario"):
-        _scenario_selection_page()
-        return
+    hv_chat.inject()
+    _inject_css()
 
     if not st.session_state.onboarding_done:
         _show_onboarding()
@@ -4722,30 +4732,64 @@ def main() -> None:
         _page_login()
         return
 
-    # Show case dashboard if user has prior cases (before entering the main flow)
-    if (st.session_state.get("vs_step", 1) <= 1
-            and st.session_state.get("user_email")):
-        _case_dashboard()
+    if not st.session_state.profile_complete:
+        hv_profile.render()
+        return
 
-    _render_sidebar()
+    if not st.session_state.selected_scenario:
+        hv_dashboard.render()
+        return
 
-    role = st.session_state.role
+    if not st.session_state.selected_option:
+        hv_option_cards.render(st.session_state.selected_scenario)
+        return
 
-    if role == "versicherter":
-        step = st.session_state.vs_step
-        if   step == 1: _vs_step_1_situation()
-        elif step == 2: _vs_step_2_analyse()
-        elif step == 3: _vs_step_3_akteure()
-        elif step == 4: _vs_step_4_koordination()
-        elif step == 5: _vs_step_5_ergebnis()
-        elif step == 6: _vs_step_6_entscheid()
-        elif step == 7: _vs_step_final()
+    scenario = st.session_state.selected_scenario
+    option   = st.session_state.selected_option
+    role     = st.session_state.role
 
-    elif role == "institution":
+    if role == "institution":
         view = st.session_state.inst_view
         if   view == "dashboard": _inst_dashboard()
         elif view == "form":      _inst_form()
         elif view == "done":      _inst_done()
+        return
+
+    profile = st.session_state.profile_data
+    case    = _load_case() or st.session_state.case
+
+    if scenario == "stellenwechsel":
+        if option == "B":
+            if st.session_state.vs_step <= 1 and st.session_state.user_email:
+                _case_dashboard()
+            _render_sidebar()
+            step = st.session_state.vs_step
+            if   step == 1: _vs_step_1_situation()
+            elif step == 2: _vs_step_2_analyse()
+            elif step == 3: _vs_step_3_akteure()
+            elif step == 4: _vs_step_4_koordination()
+            elif step == 5: _vs_step_5_ergebnis()
+            elif step == 6: _vs_step_6_entscheid()
+            elif step == 7: _vs_step_final()
+        elif option == "A": sw_a.render(profile, case)
+        elif option == "C": sw_c.render(profile, case)
+        elif option == "D": sw_d.render(profile, case)
+    elif scenario == "revue_avs":
+        if option == "B":
+            if st.session_state.vs_step <= 1 and st.session_state.user_email:
+                _case_dashboard()
+            _render_sidebar()
+            step = st.session_state.vs_step
+            if   step == 1: _vs_step_1_situation()
+            elif step == 2: _vs_step_2_analyse()
+            elif step == 3: _vs_step_3_akteure()
+            elif step == 4: _vs_step_4_koordination()
+            elif step == 5: _vs_step_5_ergebnis()
+            elif step == 6: _vs_step_6_entscheid()
+            elif step == 7: _vs_step_final()
+        elif option == "A": avs_a.render(profile, case)
+        elif option == "C": avs_c.render(profile, case)
+        elif option == "D": avs_d.render(profile, case)
 
 
 main()
