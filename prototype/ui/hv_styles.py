@@ -1,0 +1,11 @@
+"""ui/hv_styles.py — HelveVista 2.0 design tokens."""
+
+HV_DARK   = "#0F1E2E"
+HV_CARD   = "#122033"
+HV_BORDER = "#1A3048"
+HV_GOLD   = "#C9A84C"
+HV_MUTED  = "#7A96B0"
+HV_GREEN  = "#6FCF97"
+HV_BLUE   = "#56B0E8"
+HV_TEXT   = "#C8D8E8"
+HV_DIM    = "#3E5F7A"

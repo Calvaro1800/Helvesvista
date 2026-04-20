@@ -47,6 +47,7 @@ from llm.email_agent import (
     send_followup_email,
     send_institution_email,
 )
+from ui.hv_utils import extract_doc_info as _extract_doc_info
 
 
 def _json_default(obj):
@@ -558,6 +559,13 @@ def _init_session() -> None:
         "sparring_collected":  {},
         # MongoDB case tracking
         "case_id":             None,
+        # HelveVista 2.0 additions
+        "selected_option":        None,    # "A" | "B" | "C" | "D"
+        "profile_complete":       False,
+        "profile_data":           {},
+        "chat_open":              False,
+        "chat_messages_global":   [],
+        "option_statuses":        {},      # {scenario: {option: status_str}}
     }
     for key, val in defaults.items():
         if key not in st.session_state:
@@ -939,130 +947,6 @@ def _simulate_response(actor: Actor, context: dict) -> dict:
     if _use_llm():
         return _simulate_llm(actor, context)
     return DEMO_RESPONSES[actor]
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DOCUMENT EXTRACTION (Feature 2)
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _extract_doc_info(uploaded_files: list) -> dict:
-    """
-    Extract pension/contact information from uploaded documents via Claude API.
-
-    Supports PDF (text extraction via pypdf if available, else skipped) and
-    images (PNG/JPG — sent as base64 vision content).
-
-    Returns a dict of extracted fields, or {} if nothing could be extracted.
-    """
-    import base64
-    import io
-    import sys
-    import anthropic
-    try:
-        import pypdf  # type: ignore[import]
-        _PYPDF_OK = True
-    except ImportError:
-        _PYPDF_OK = False
-        print("[extract] WARNING: pypdf not installed — PDF text extraction disabled", file=sys.stderr)
-
-    client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-
-    content_parts: list[dict] = []
-
-    for f in uploaded_files:
-        file_ext = f.name.lower().rsplit(".", 1)[-1]
-
-        if file_ext == "pdf":
-            if not _PYPDF_OK:
-                continue
-            try:
-                f.seek(0)
-                pdf_bytes = f.read()
-                reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-                text_extracted = ""
-                for page in reader.pages:
-                    text_extracted += page.extract_text() or ""
-                if not text_extracted.strip():
-                    continue
-            except Exception as e:
-                continue
-
-            content_parts.append({
-                "type": "text",
-                "text": f"Dokument '{f.name}':\n{text_extracted[:4000]}",
-            })
-        else:
-            # Image — send as base64 vision block
-            f.seek(0)
-            file_bytes = f.read()
-            media_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg"}
-            media_type = media_map.get(file_ext, "image/png")
-            b64 = base64.b64encode(file_bytes).decode()
-            content_parts.append({
-                "type": "image",
-                "source": {
-                    "type":       "base64",
-                    "media_type": media_type,
-                    "data":       b64,
-                },
-            })
-
-    if not content_parts:
-        return {}
-
-    content_parts.append({
-        "type": "text",
-        "text": "Extrahiere die Vorsorge-Informationen aus diesem Dokument.",
-    })
-
-    system_prompt = (
-        "Analysiere dieses Dokument (Vorsorgeausweis oder ähnliches) "
-        "und extrahiere alle verfügbaren Informationen. "
-        "Antworte NUR mit JSON, kein Text davor oder danach:\n"
-        "{\n"
-        '  "name": null,\n'
-        '  "geburtsdatum": null,\n'
-        '  "ahv_nummer": null,\n'
-        '  "pensionskasse": null,\n'
-        '  "arbeitgeber": null,\n'
-        '  "arbeitgeber_ort": null,\n'
-        '  "freizuegigkeit_chf": null,\n'
-        '  "koordinationsabzug_chf": null,\n'
-        '  "austrittsdatum": null,\n'
-        '  "eintrittsdatum": null,\n'
-        '  "email": null,\n'
-        '  "telefon": null\n'
-        "}\n"
-        "Wichtig:\n"
-        "- 'name': Vollständiger Name der versicherten Person\n"
-        "- 'geburtsdatum': Geburtsdatum der versicherten Person\n"
-        "- 'ahv_nummer': AHV-/AVS-Nummer (Format 756.XXXX.XXXX.XX)\n"
-        "- 'pensionskasse': Name der Pensionskasse/Vorsorgeeinrichtung\n"
-        "- 'arbeitgeber': Name des Arbeitgebers/Unternehmens\n"
-        "- 'arbeitgeber_ort': Ort/Stadt des Arbeitgebers\n"
-        "- 'freizuegigkeit_chf': Freizügigkeitsguthaben als Zahl ohne Währung\n"
-        "- 'koordinationsabzug_chf': Koordinationsabzug als Zahl ohne Währung\n"
-        "- 'austrittsdatum': Austrittsdatum als Text\n"
-        "- 'eintrittsdatum': Eintrittsdatum als Text\n"
-        "- 'email': E-Mail-Adresse der Institution\n"
-        "- 'telefon': Telefonnummer der Institution\n"
-        "Setze null wenn nicht im Dokument vorhanden. Nur JSON."
-    )
-
-    try:
-        msg = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=512,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content_parts}],
-        )
-        raw_response = msg.content[0].text.strip()
-        # Strip ``` fences robustly
-        raw = raw_response.replace("```json", "").replace("```", "").strip()
-        result = json.loads(raw)
-        return result
-    except Exception as _exc:
-        return {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
