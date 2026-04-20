@@ -47,3 +47,64 @@ def test_get_option_config_returns_four_options_per_scenario():
 
 def test_get_option_config_unknown_scenario_returns_empty():
     assert get_option_config("unknown") == []
+
+
+# ── Task 4: hv_chat ──────────────────────────────────────────────────────────
+
+from ui.hv_chat import build_chat_context
+
+
+def test_build_chat_context_includes_required_keys():
+    ctx = build_chat_context(
+        scenario="stellenwechsel",
+        option="B",
+        vs_step=3,
+        profile={"vorname": "Max", "anstellung": "angestellt"},
+        actor_states={"OLD_PK": "COMPLETED"},
+    )
+    assert "scenario" in ctx
+    assert "option" in ctx
+    assert "vs_step" in ctx
+    assert ctx["scenario"] == "stellenwechsel"
+    assert ctx["vs_step"] == 3
+
+
+def test_build_chat_context_handles_none_option():
+    ctx = build_chat_context(
+        scenario=None, option=None, vs_step=1, profile={}, actor_states={}
+    )
+    assert ctx["scenario"] == "—"
+    assert ctx["option"] == "—"
+
+
+# ── Task 5: hv_profile ───────────────────────────────────────────────────────
+
+from ui.hv_profile import profile_is_complete
+
+
+def test_profile_is_complete_returns_false_when_missing_required_field():
+    incomplete = {
+        "vorname": "Max", "nachname": "Muster",
+        "geburtsjahr": 1985, "kinder": False,
+        # missing: zivilstand, anstellung
+    }
+    assert profile_is_complete(incomplete) is False
+
+
+def test_profile_is_complete_returns_true_when_all_fields_present():
+    complete = {
+        "vorname": "Max", "nachname": "Muster",
+        "zivilstand": "ledig", "geburtsjahr": 1985,
+        "kinder": False, "anstellung": "angestellt",
+    }
+    assert profile_is_complete(complete) is True
+
+
+def test_profile_is_complete_rejects_empty_string_fields():
+    profile = {
+        "vorname": "Max", "nachname": "Muster",
+        "zivilstand": "",   # empty string = not filled
+        "geburtsjahr": 1985, "kinder": False,
+        "anstellung": "angestellt",
+    }
+    assert profile_is_complete(profile) is False

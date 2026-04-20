@@ -4791,5 +4791,9 @@ def main() -> None:
         elif option == "C": avs_c.render(profile, case)
         elif option == "D": avs_d.render(profile, case)
 
+    # Floating chat panel (rendered when open, after all page content)
+    if st.session_state.get("chat_open"):
+        hv_chat.render_panel()
+
 
 main()
