@@ -47,6 +47,9 @@ data/*.jsonl
 data/*.json
 case_state.json
 
+# Visual companion brainstorm sessions
+.superpowers/
+
 # Thesis drafts (kept separate from code)
 docs/drafts/
 *.docx
