@@ -153,3 +153,58 @@ def test_lpp_sections_have_title_and_content():
     for s in LPP_SECTIONS:
         assert "title" in s and "content" in s
         assert len(s["content"]) > 20
+
+
+# ── Task 9: revue_avs_a ──────────────────────────────────────────────────────
+
+from ui.hv_options.revue_avs_a import is_ik_stale
+from datetime import date
+
+
+def test_is_ik_stale_returns_true_for_date_over_12_months_ago():
+    old_date = date(2024, 1, 1).isoformat()  # clearly > 12 months before 2026-04-21
+    assert is_ik_stale(old_date) is True
+
+
+def test_is_ik_stale_returns_false_for_recent_date():
+    recent = date(2026, 1, 15).isoformat()   # < 12 months before 2026-04-21
+    assert is_ik_stale(recent) is False
+
+
+def test_is_ik_stale_returns_false_for_none():
+    assert is_ik_stale(None) is False
+
+
+def test_is_ik_stale_returns_false_for_unparseable_string():
+    assert is_ik_stale("not-a-date") is False
+
+
+# ── Task 10: revue_avs_b ─────────────────────────────────────────────────────
+
+import ui.hv_options.revue_avs_b  # smoke: module imports without error
+
+
+# ── Task 11: revue_avs_c ─────────────────────────────────────────────────────
+
+from ui.hv_options.revue_avs_c import parse_recommendation as avs_parse_rec
+
+
+def test_avs_parse_recommendation_detects_option_A():
+    text = "Ich empfehle Ihnen, mit Option A zu beginnen.\n\nEMPFEHLUNG: A"
+    assert avs_parse_rec(text) == "A"
+
+
+# ── Task 12: revue_avs_d ─────────────────────────────────────────────────────
+
+from ui.hv_options.revue_avs_d import AVS_SECTIONS
+
+
+def test_avs_sections_has_three_entries():
+    assert len(AVS_SECTIONS) == 3
+
+
+def test_avs_sections_keys_are_correct():
+    titles = {s["title"] for s in AVS_SECTIONS}
+    assert "Wer ist betroffen" in titles
+    assert "Zeitfenster" in titles
+    assert "Ablauf der Nachzahlung" in titles
