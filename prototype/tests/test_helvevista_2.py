@@ -108,3 +108,48 @@ def test_profile_is_complete_rejects_empty_string_fields():
         "anstellung": "angestellt",
     }
     assert profile_is_complete(profile) is False
+
+
+# ── Task 6: stellenwechsel_a ─────────────────────────────────────────────────
+
+from ui.hv_options.stellenwechsel_a import EXPLAINED_FIELDS
+
+
+def test_stellenwechsel_a_explains_all_four_fields():
+    assert set(EXPLAINED_FIELDS) == {
+        "freizuegigkeit", "koordinationsabzug", "deckungsgrad", "umwandlungssatz"
+    }
+
+
+# ── Task 7: stellenwechsel_c ─────────────────────────────────────────────────
+
+from ui.hv_options.stellenwechsel_c import parse_recommendation
+
+
+def test_parse_recommendation_detects_option_B():
+    text = "Ich empfehle Ihnen Option B, da Sie bereits einen Arbeitgeberwechsel vollzogen haben.\n\nEMPFEHLUNG: B"
+    assert parse_recommendation(text) == "B"
+
+
+def test_parse_recommendation_returns_none_when_absent():
+    text = "Können Sie mir mehr über Ihre Situation erzählen?"
+    assert parse_recommendation(text) is None
+
+
+def test_parse_recommendation_case_insensitive():
+    assert parse_recommendation("EMPFEHLUNG: a") == "A"
+
+
+# ── Task 8: stellenwechsel_d ─────────────────────────────────────────────────
+
+from ui.hv_options.stellenwechsel_d import LPP_SECTIONS
+
+
+def test_lpp_sections_has_four_entries():
+    assert len(LPP_SECTIONS) == 4
+
+
+def test_lpp_sections_have_title_and_content():
+    for s in LPP_SECTIONS:
+        assert "title" in s and "content" in s
+        assert len(s["content"]) > 20
