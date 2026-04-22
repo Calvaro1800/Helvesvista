@@ -795,6 +795,9 @@ def _render_sidebar() -> None:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _render_steps(current: int) -> None:
+    if st.button("← Zurück zur Szenario-Übersicht", key=f"back_to_overview_{current}"):
+        st.session_state.selected_option = None
+        st.rerun()
     parts: list[str] = []
     for i, name in enumerate(STEP_NAMES, 1):
         cls = "done" if i < current else ("active" if i == current else "")
@@ -2710,6 +2713,9 @@ def _vs_step_6_entscheid() -> None:
 
 def _vs_step_final() -> None:
     """Final screen — confirmation with case ID and next steps"""
+    if st.button("← Zurück zur Szenario-Übersicht", key="back_to_overview_7"):
+        st.session_state.selected_option = None
+        st.rerun()
     orch: HelveVistaOrchestrator = st.session_state.orchestrator
     final = orch.state
 
@@ -3386,6 +3392,11 @@ def _render_person_summary_card(case: dict) -> None:
 
 def _inst_dashboard() -> None:
     """Institution dashboard — professional two-column layout with case overview."""
+
+    if st.button("← Zurück zur Versicherter-Ansicht"):
+        st.session_state.role      = "versicherter"
+        st.session_state.inst_view = "dashboard"
+        st.rerun()
 
     # Institution selector
     inst_map: dict[str, Actor] = {
