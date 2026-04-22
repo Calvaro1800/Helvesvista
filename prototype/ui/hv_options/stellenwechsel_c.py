@@ -19,7 +19,7 @@ _SYSTEM_PROMPT = (
     "Stelle gezielte Fragen zur Situation (maximal 2 auf einmal). "
     "Wenn du genug weisst, empfehle EXAKT EINE der folgenden Optionen:\n"
     "- Option A: Dokumente verstehen (Nutzer möchte seinen Vorsorgeausweis verstehen)\n"
-    "- Option B: Démarches starten (Nutzer hat Job gewechselt und muss koordinieren)\n"
+    "- Option B: Koordination starten (Nutzer hat Job gewechselt und muss koordinieren)\n"
     "- Option D: LPP-Einkauf verstehen (Nutzer interessiert sich für steuerliche Optimierung)\n\n"
     "Antworte immer auf Deutsch. "
     "Empfehle nie mehrere Optionen gleichzeitig. "

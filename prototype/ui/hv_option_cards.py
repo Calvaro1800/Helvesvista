@@ -17,7 +17,7 @@ _OPTION_CONFIG: dict[str, list[dict]] = {
         },
         {
             "letter": "B",
-            "title": "Démarches starten",
+            "title": "Koordination starten",
             "description": "Der vollständige 6-Schritt-Koordinationsprozess mit Ihren Pensionskassen.",
         },
         {
