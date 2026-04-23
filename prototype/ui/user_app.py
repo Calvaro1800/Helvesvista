@@ -2045,6 +2045,18 @@ def _vs_step_3_akteure() -> None:
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
+    st.markdown(
+        '<div style="border:1px solid #C9A84C33;border-radius:6px;padding:.75rem 1rem;'
+        'margin-bottom:.75rem;background:rgba(201,168,76,0.06);">'
+        '<span style="font-size:.82rem;color:#B0BEC5;line-height:1.6;">'
+        '⚠️ <strong style="color:#C9A84C;">Hinweis:</strong> '
+        'Die über HelveVista versendeten E-Mails ersetzen keine rechtsgültige Unterschrift. '
+        'Für rechtlich verbindliche Handlungen (z.B. Austritt, Eintritt, Nachzahlung) '
+        'bestätigen Sie den Vorgang bitte zusätzlich direkt mit der Institution.'
+        '</span></div>',
+        unsafe_allow_html=True,
+    )
+
     col_back, col_next = st.columns(2)
     with col_back:
         if st.button("Zurück", use_container_width=True):

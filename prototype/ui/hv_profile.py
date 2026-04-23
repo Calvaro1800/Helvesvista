@@ -125,6 +125,14 @@ def render() -> None:
     with col6:
         kinder = st.checkbox("Kinder vorhanden")
 
+    st.markdown(
+        f'<p style="color:{HV_MUTED};font-size:.78rem;line-height:1.5;margin-top:1rem;margin-bottom:.75rem;">'
+        f'🔒 Ihre Daten bleiben lokal gespeichert. HelveVista überträgt keine personenbezogenen Daten an Dritte. '
+        f'Der KI-Assistent verarbeitet Ihre Angaben ausschliesslich zur Unterstützung Ihrer Vorsorge-Koordination.'
+        f'</p>',
+        unsafe_allow_html=True,
+    )
+
     if st.button("Profil speichern", type="primary", use_container_width=True,
                  disabled=not all([vorname, nachname, zivilstand, anstellung])):
         profile = {
