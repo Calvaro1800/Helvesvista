@@ -4936,6 +4936,8 @@ def main() -> None:
         return
 
     if not st.session_state.selected_option:
+        if st.session_state.get("pending_option"):
+            _render_sidebar()
         hv_option_cards.render(st.session_state.selected_scenario)
         return
 
