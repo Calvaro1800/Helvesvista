@@ -563,6 +563,7 @@ def _init_session() -> None:
         "selected_option":        None,    # "A" | "B" | "C" | "D"
         "pending_option":         None,    # option letter awaiting reuse decision
         "data_reuse_choice":      None,    # "reuse" | "fresh"
+        "_known_emails_cache":    None,    # fetched once from MongoDB on login page
         "profile_complete":       False,
         "profile_data":           {},
         "chat_open":              False,
@@ -1013,12 +1014,37 @@ def _page_login() -> None:
         label_visibility="visible",
     )
 
-    email = st.text_input(
-        "E-Mail-Adresse",
-        placeholder="vorname.nachname@beispiel.ch",
-        key="_login_email_input",
-        label_visibility="visible",
-    )
+    _OTHER = "— Andere E-Mail-Adresse eingeben —"
+    if "_known_emails_cache" not in st.session_state:
+        try:
+            from core.mongodb_client import list_known_emails
+            st.session_state["_known_emails_cache"] = list_known_emails()
+        except Exception:
+            st.session_state["_known_emails_cache"] = []
+
+    known_emails: list = st.session_state["_known_emails_cache"]
+
+    if known_emails:
+        selected_email = st.selectbox(
+            "E-Mail-Adresse",
+            options=known_emails + [_OTHER],
+            key="_login_email_select",
+        )
+        if selected_email == _OTHER:
+            email = st.text_input(
+                "Neue E-Mail-Adresse",
+                placeholder="vorname.nachname@beispiel.ch",
+                key="_login_email_input",
+            )
+        else:
+            email = selected_email
+    else:
+        email = st.text_input(
+            "E-Mail-Adresse",
+            placeholder="vorname.nachname@beispiel.ch",
+            key="_login_email_input",
+            label_visibility="visible",
+        )
 
     st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
 

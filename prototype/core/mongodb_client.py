@@ -101,3 +101,16 @@ def delete_case(case_id: str) -> bool:
     except Exception as e:
         print(f"[MongoDB] delete_case failed: {e}")
         return False
+
+
+def list_known_emails() -> list[str]:
+    """Return sorted list of distinct user emails from the cases collection."""
+    col = _get_collection()
+    if col is None:
+        return []
+    try:
+        emails = col.distinct("user_email")
+        return sorted(e for e in emails if e and "@" in e)
+    except Exception as e:
+        print(f"[MongoDB] list_known_emails failed: {e}")
+        return []
