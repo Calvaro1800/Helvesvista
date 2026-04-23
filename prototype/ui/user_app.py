@@ -1869,13 +1869,31 @@ def _vs_step_2_analyse() -> None:
             case["vorsorge_ausweis"] = existing["vorsorge_ausweis"]
         _save_case(case)
 
-    ctx = st.session_state.structured_ctx
+    ctx      = st.session_state.structured_ctx
+    scenario = st.session_state.get("selected_scenario", "stellenwechsel")
 
     st.markdown('<div class="hv-label" style="margin-top:0.5rem;">Erkannte Situation</div>', unsafe_allow_html=True)
     with st.container(border=True):
         use_case = ctx.get("use_case", "STELLENWECHSEL").replace("_", " ").title()
         st.markdown(f"**Verfahren:** {use_case}")
-        st.markdown(f"**Zusammenfassung:** {ctx.get('user_summary', raw[:240])}")
+
+        if scenario == "revue_avs":
+            coll = st.session_state.get("sparring_collected", {})
+            avs_rows = [
+                ("Name",                    coll.get("name")),
+                ("AHV-Nummer",              coll.get("ahv_nummer")),
+                ("Geburtsdatum",            coll.get("geburtsdatum")),
+                ("Grund der AHV-Anfrage",   coll.get("grund_der_anfrage")),
+                ("IK-Auszug vorhanden",     coll.get("ik_auszug_vorhanden")),
+                ("Beitragsunterbrüche",     coll.get("luecken_beitraege")),
+                ("Situationsbeschreibung",  coll.get("situation_beschreibung")),
+            ]
+            for label, value in avs_rows:
+                if value:
+                    st.markdown(f"**{label}:** {value}")
+        else:
+            st.markdown(f"**Zusammenfassung:** {ctx.get('user_summary', raw[:240])}")
+
         missing = ctx.get("missing_info", [])
         if missing:
             st.markdown("**Fehlende Angaben:**")
@@ -1883,10 +1901,13 @@ def _vs_step_2_analyse() -> None:
                 st.caption(f"  · {m}")
 
     if not _use_llm():
-        st.info(
-            "Demo-Modus: Standardfall Stellenwechsel erkannt "
-            "(Alte Pensionskasse + Neue Pensionskasse)."
-        )
+        if scenario == "revue_avs":
+            st.info("Demo-Modus: AHV-Anfrage erkannt (AVS-Ausgleichskasse).")
+        else:
+            st.info(
+                "Demo-Modus: Standardfall Stellenwechsel erkannt "
+                "(Alte Pensionskasse + Neue Pensionskasse)."
+            )
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
@@ -2204,19 +2225,20 @@ def _vs_step_4_koordination() -> None:
 
     if waiting and auto_sim_enabled and elapsed >= AUTO_SIM_DELAY:
         # Trigger auto-simulation for all remaining waiting actors
-        for actor in waiting:
-            resp     = _simulate_response(actor, ctx)
-            now_str  = time.strftime("%Y-%m-%dT%H:%M:%S")
-            v        = orch.log.current_version
-            orch.receive_actor_response(actor, resp, response_version=v)
-            st.session_state.responses_done.add(actor)
+        with st.spinner("HelveVista arbeitet…"):
+            for actor in waiting:
+                resp     = _simulate_response(actor, ctx)
+                now_str  = time.strftime("%Y-%m-%dT%H:%M:%S")
+                v        = orch.log.current_version
+                orch.receive_actor_response(actor, resp, response_version=v)
+                st.session_state.responses_done.add(actor)
 
-            # Persist to JSON so institution tab can see the auto-response
-            case = _load_case()
-            case.setdefault("institution_responses", {})[actor.value]     = resp
-            case.setdefault("institution_responded", {})[actor.value]     = True
-            case.setdefault("institution_response_date", {})[actor.value] = now_str
-            _save_case(case)
+                # Persist to JSON so institution tab can see the auto-response
+                case = _load_case()
+                case.setdefault("institution_responses", {})[actor.value]     = resp
+                case.setdefault("institution_responded", {})[actor.value]     = True
+                case.setdefault("institution_response_date", {})[actor.value] = now_str
+                _save_case(case)
 
         st.rerun()
         return
