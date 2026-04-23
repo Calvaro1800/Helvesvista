@@ -10,7 +10,7 @@ import os
 import re
 import streamlit as st
 import anthropic
-from ui.hv_styles import HV_MUTED
+from ui.hv_styles import HV_GOLD, HV_MUTED
 
 MODEL = "claude-sonnet-4-20250514"
 
@@ -72,12 +72,28 @@ def render(profile: dict, case: dict) -> None:
             st.session_state.option_statuses.setdefault(scenario, {})[rec] = "in_bearbeitung"
             st.rerun()
 
-    user_input = st.chat_input("Ihre Situation…", key="avs_c_input")
-    if user_input:
-        st.session_state[msgs_key].append({"role": "user", "content": user_input})
+    st.markdown(
+        f'<p style="color:{HV_GOLD};font-size:.8rem;letter-spacing:.1em;margin:1.5rem 0 .4rem;">'
+        f"IHRE SITUATION</p>",
+        unsafe_allow_html=True,
+    )
+    _input_cycle = st.session_state.get("avs_c_input_cycle", 0)
+    user_input = st.text_area(
+        "Ihre Situation",
+        placeholder="Beschreiben Sie Ihre AHV-Situation…",
+        key=f"avs_c_text_{_input_cycle}",
+        height=100,
+        label_visibility="collapsed",
+    )
+    col_l, col_btn, col_r = st.columns([3, 2, 3])
+    with col_btn:
+        send = st.button("Senden →", key="avs_c_send", type="primary", use_container_width=True)
+    if send and user_input.strip():
+        st.session_state[msgs_key].append({"role": "user", "content": user_input.strip()})
         reply = _llm_reply(st.session_state[msgs_key])
         st.session_state[msgs_key].append({"role": "assistant", "content": reply})
         st.session_state.option_statuses.setdefault(scenario, {}).setdefault("C", "in_bearbeitung")
+        st.session_state["avs_c_input_cycle"] = _input_cycle + 1
         st.rerun()
 
 
