@@ -1588,19 +1588,12 @@ def _sparring_buddy_chat() -> None:
         if msg["role"] == "assistant":
             st.markdown(
                 f"""
-<div style="display:flex; align-items:flex-start; gap:10px;">
-  <div style="width:28px; height:28px; border-radius:50%;
-              background:#C9A84C; display:flex;
-              align-items:center; justify-content:center;
-              font-weight:700; font-size:0.7rem;
-              color:#0d1f2d; flex-shrink:0; margin-top:2px;">HV</div>
-  <div style="background:#0d2137; border:1px solid #1e3d5c;
-              border-radius:4px 12px 12px 12px;
-              padding:16px 20px; max-width:88%;
-              color:#e0e8f0; font-size:1.0rem;
-              line-height:1.75;">
-    {msg["content"]}
-  </div>
+<div style="background:#0d2137; border:1px solid #1e3d5c;
+            border-radius:4px 12px 12px 12px;
+            padding:16px 20px; max-width:88%;
+            color:#e0e8f0; font-size:1.0rem;
+            line-height:1.75;">
+  {msg["content"]}
 </div>
 """,
                 unsafe_allow_html=True,
@@ -5035,8 +5028,7 @@ def main() -> None:
         return
 
     if not st.session_state.selected_option:
-        if st.session_state.get("pending_option"):
-            _render_sidebar()
+        _render_sidebar()
         hv_option_cards.render(st.session_state.selected_scenario)
         return
 
@@ -5054,11 +5046,12 @@ def main() -> None:
     profile = st.session_state.profile_data
     case    = _load_case() or st.session_state.case
 
+    _render_sidebar()
+
     if scenario == "stellenwechsel":
         if option == "B":
             if st.session_state.vs_step <= 1 and st.session_state.user_email:
                 _case_dashboard()
-            _render_sidebar()
             step = st.session_state.vs_step
             if   step == 1: _vs_step_1_situation()
             elif step == 2: _vs_step_2_analyse()
@@ -5074,7 +5067,6 @@ def main() -> None:
         if option == "B":
             if st.session_state.vs_step <= 1 and st.session_state.user_email:
                 _case_dashboard()
-            _render_sidebar()
             step = st.session_state.vs_step
             if   step == 1: _vs_step_1_situation()
             elif step == 2: _vs_step_2_analyse()
