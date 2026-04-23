@@ -5046,12 +5046,11 @@ def main() -> None:
     profile = st.session_state.profile_data
     case    = _load_case() or st.session_state.case
 
-    _render_sidebar()
-
     if scenario == "stellenwechsel":
         if option == "B":
             if st.session_state.vs_step <= 1 and st.session_state.user_email:
                 _case_dashboard()
+            _render_sidebar()
             step = st.session_state.vs_step
             if   step == 1: _vs_step_1_situation()
             elif step == 2: _vs_step_2_analyse()
@@ -5062,11 +5061,14 @@ def main() -> None:
             elif step == 7: _vs_step_final()
         elif option == "A": sw_a.render(profile, case)
         elif option == "C": sw_c.render(profile, case)
-        elif option == "D": sw_d.render(profile, case)
+        elif option == "D":
+            _render_sidebar()
+            sw_d.render(profile, case)
     elif scenario == "revue_avs":
         if option == "B":
             if st.session_state.vs_step <= 1 and st.session_state.user_email:
                 _case_dashboard()
+            _render_sidebar()
             step = st.session_state.vs_step
             if   step == 1: _vs_step_1_situation()
             elif step == 2: _vs_step_2_analyse()
@@ -5077,7 +5079,9 @@ def main() -> None:
             elif step == 7: _vs_step_final()
         elif option == "A": avs_a.render(profile, case)
         elif option == "C": avs_c.render(profile, case)
-        elif option == "D": avs_d.render(profile, case)
+        elif option == "D":
+            _render_sidebar()
+            avs_d.render(profile, case)
 
     # Floating chat panel — skip on own-chat options (A, C, D) even if
     # chat_open is stale from a previous page.
