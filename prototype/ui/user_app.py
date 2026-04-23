@@ -5004,6 +5004,20 @@ def main() -> None:
     hv_chat.inject()
     _inject_css()
 
+    # Reset sparring state when the scenario changes while Option B is active.
+    _cur_scenario = st.session_state.get("selected_scenario")
+    if st.session_state.get("selected_option") == "B" and _cur_scenario:
+        _last_sparring_scenario = st.session_state.get("last_sparring_scenario")
+        if _last_sparring_scenario is not None and _last_sparring_scenario != _cur_scenario:
+            st.session_state.sparring_messages = []
+            st.session_state.sparring_collected = {}
+            st.session_state.sparring_complete = False
+            st.session_state.sparring_situation = ""
+            st.session_state.sparring_data_confirmed = None
+            st.session_state.sparring_input_cycle = 0
+            st.session_state.vs_step = 1
+        st.session_state["last_sparring_scenario"] = _cur_scenario
+
     if not st.session_state.onboarding_done:
         _show_onboarding()
         return

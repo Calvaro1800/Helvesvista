@@ -18,8 +18,8 @@ _OPENING_MSG = (
     "Wie kann ich Ihnen helfen?"
 )
 
-# Options A, C, D embed their own chat — the floating chat is suppressed there.
-_OWN_CHAT_OPTIONS = {"A", "C", "D"}
+# Options A, B, C, D embed their own chat — the floating chat is suppressed there.
+_OWN_CHAT_OPTIONS = {"A", "B", "C", "D"}
 
 
 def build_chat_context(
