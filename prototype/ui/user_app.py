@@ -560,6 +560,7 @@ def _init_session() -> None:
         "sparring_complete":   False,
         "sparring_situation":  "",
         "sparring_collected":  {},
+        "sparring_input_cycle": 0,
         # MongoDB case tracking
         "case_id":             None,
         # HelveVista 2.0 additions
@@ -1598,12 +1599,13 @@ def _sparring_buddy_chat() -> None:
 """,
             unsafe_allow_html=True,
         )
+        _input_cycle = st.session_state.get("sparring_input_cycle", 0)
         col_in, col_btn = st.columns([5, 1])
         with col_in:
             user_input = st.text_input(
                 "Ihre Antwort",
                 placeholder="Schreiben Sie hier Ihre Antwort…",
-                key="sparring_input",
+                key=f"sparring_input_{_input_cycle}",
                 label_visibility="collapsed",
             )
         with col_btn:
@@ -1617,6 +1619,7 @@ def _sparring_buddy_chat() -> None:
             st.session_state.sparring_messages.append(
                 {"role": "user", "content": user_input.strip()}
             )
+            st.session_state.sparring_input_cycle = _input_cycle + 1
             with st.spinner("HelveVista schreibt…"):
                 _sparring_llm_response()
             st.rerun()

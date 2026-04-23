@@ -17,7 +17,7 @@ _OPTION_CONFIG: dict[str, list[dict]] = {
         },
         {
             "letter": "B",
-            "title": "Koordination starten",
+            "title": "Koordinationsverfahren einleiten",
             "description": "Der vollständige 6-Schritt-Koordinationsprozess mit Ihren Pensionskassen.",
         },
         {
@@ -39,7 +39,7 @@ _OPTION_CONFIG: dict[str, list[dict]] = {
         },
         {
             "letter": "B",
-            "title": "Anfrage stellen",
+            "title": "Koordinationsverfahren einleiten",
             "description": "Strukturierte Anfrage an die AHV-Ausgleichskasse über den Gmail-Kanal.",
         },
         {
