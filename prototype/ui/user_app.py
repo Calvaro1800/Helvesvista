@@ -560,6 +560,7 @@ def _init_session() -> None:
         "sparring_complete":   False,
         "sparring_situation":  "",
         "sparring_collected":  {},
+        "sparring_data_confirmed": None,  # None = pending, True = confirmed, False = correction mode
         "sparring_input_cycle": 0,
         # MongoDB case tracking
         "case_id":             None,
@@ -1296,12 +1297,30 @@ def _sparring_llm_response() -> None:
             if v
         ) or "  (keine vorausgefüllten Daten)"
 
+        _data_confirmed = st.session_state.get("sparring_data_confirmed")
+        if _data_confirmed is True:
+            _confirmation_ctx = (
+                "GESPRÄCHSSTATUS: Der Nutzer hat die vorausgefüllten Daten BESTÄTIGT (Ja). "
+                "Er hat sein Anliegen bereits genannt. "
+                "Stelle KEINE Identifikationsfragen mehr — sammle NUR noch fehlende Pflichtfelder.\n\n"
+            )
+        elif _data_confirmed is False:
+            _confirmation_ctx = (
+                "GESPRÄCHSSTATUS: Der Nutzer hat die vorausgefüllten Daten NICHT bestätigt (Nein). "
+                "Er korrigiert aktuell fehlerhafte Angaben. "
+                "Verarbeite Korrekturen, bestätige sie kurz, frage ob weitere Korrekturen gewünscht sind. "
+                "Erst wenn alle Korrekturen abgeschlossen: sammle fehlende Pflichtfelder.\n\n"
+            )
+        else:
+            _confirmation_ctx = ""
+
         if scenario == "revue_avs":
             system = (
                 "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
                 "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch "
                 "zur AHV-Situation des Versicherten.\n\n"
-                f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
+                f"{_confirmation_ctx}"
+                f"BEREITS BEKANNT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
                 f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
                 "WICHTIG: Der Nutzer muss IMMER seine Situation in "
                 "eigenen Worten beschreiben (Feld: Beschreibung der "
@@ -1330,7 +1349,8 @@ def _sparring_llm_response() -> None:
             system = (
                 "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
                 "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
-                f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
+                f"{_confirmation_ctx}"
+                f"BEREITS BEKANNT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
                 f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
                 "WICHTIG: Der Nutzer muss IMMER seine Situation in "
                 "eigenen Worten beschreiben (Feld: Beschreibung der "
@@ -1407,9 +1427,31 @@ def _sparring_buddy_chat() -> None:
     case = _load_case() or st.session_state.case
     vorsorge = case.get("vorsorge_ausweis", {})
 
-    # B) PRE-FILL FROM VORSORGE — runs every render,
-    #    only injects keys not yet in sparring_collected
+    # B) PRE-FILL — runs every render, only injects keys not yet in sparring_collected.
+    #    Priority order: (1) profile_data composite name, (2) extracted_doc_data/info,
+    #    (3) case.vorsorge_ausweis — later sources never overwrite earlier ones.
     needs_update = False
+
+    # (1) Profile: vorname + nachname → name
+    _profile = st.session_state.get("profile_data") or {}
+    if _profile.get("vorname") and not st.session_state.sparring_collected.get("name"):
+        _full_name = f"{_profile['vorname']} {_profile.get('nachname', '')}".strip()
+        if _full_name:
+            st.session_state.sparring_collected["name"] = _full_name
+            needs_update = True
+
+    # (2) Extracted document data (from Option A or Step-1 upload)
+    for _src_key in ("extracted_doc_data", "extracted_doc_info"):
+        _doc = st.session_state.get(_src_key) or {}
+        if _doc:
+            for v_key, s_key in VORSORGE_TO_SPARRING.items():
+                val = _doc.get(v_key)
+                if val and not st.session_state.sparring_collected.get(s_key):
+                    st.session_state.sparring_collected[s_key] = val
+                    needs_update = True
+            break  # use first available source
+
+    # (3) Vorsorge ausweis from case document
     if vorsorge:
         for v_key, s_key in VORSORGE_TO_SPARRING.items():
             val = vorsorge.get(v_key)
@@ -1445,14 +1487,13 @@ def _sparring_buddy_chat() -> None:
     # Opening message — only if no messages yet
     if not st.session_state.sparring_messages:
         if confirmed_list:
-            _doc_label = "IK-Auszug" if _scenario_chat == "revue_avs" else "Vorsorgeausweis"
             opening = (
-                f"Guten Tag! Ich habe Ihren {_doc_label} gelesen "
-                "und folgende Angaben bereits erfasst:<br><br>"
+                "Guten Tag! Ich habe folgende Angaben aus Ihrem Profil und "
+                "Ihren Dokumenten erfasst:<br><br>"
                 f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
                 "<br>Noch benötigt:<br>"
                 f"<span style='color:#C9A84C;font-size:0.85rem;'>{missing_str}</span>"
-                "<br>Dürfen wir beginnen?"
+                "<br><strong>Stimmt das so?</strong>"
             )
         elif _scenario_chat == "revue_avs":
             opening = (
@@ -1473,20 +1514,19 @@ def _sparring_buddy_chat() -> None:
             {"role": "assistant", "content": opening}
         )
     elif needs_update and len(st.session_state.sparring_messages) == 1:
-        # PDF uploaded after opening message — refresh it
-        _doc_label = "IK-Auszug" if _scenario_chat == "revue_avs" else "Vorsorgeausweis"
+        # Doc uploaded after opening message — refresh it; reset confirmation so buttons reappear
         updated_opening = (
-            f"Ich habe Ihren {_doc_label} soeben gelesen "
-            "und folgende Angaben erfasst:<br><br>"
+            "Ich habe neue Angaben aus Ihrem Dokument erfasst:<br><br>"
             f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
             "<br>Noch benötigt:<br>"
             f"<span style='color:#C9A84C;font-size:0.85rem;'>{missing_str}</span>"
-            "<br>Dürfen wir beginnen?"
+            "<br><strong>Stimmt das so?</strong>"
         )
         st.session_state.sparring_messages[0] = {
             "role": "assistant",
             "content": updated_opening,
         }
+        st.session_state.sparring_data_confirmed = None
 
     # C) DISPLAY CHAT MESSAGES
     # ── Chat container header ─────────────────────────
@@ -1585,8 +1625,50 @@ def _sparring_buddy_chat() -> None:
 
     # D) INPUT (only if not complete)
     if not st.session_state.sparring_complete:
-        st.markdown(
-            """
+        _needs_confirmation = (
+            st.session_state.get("sparring_data_confirmed") is None
+            and bool(confirmed_list)
+        )
+
+        if _needs_confirmation:
+            # Ja/Nein confirmation buttons — shown instead of text input
+            _anliegen_msg = (
+                "Danke. Was ist Ihr Anliegen? Bitte beschreiben Sie kurz, "
+                "was Sie mit Ihrer AHV-Anfrage klären möchten."
+                if _scenario_chat == "revue_avs"
+                else "Danke. Was ist Ihr Anliegen? Bitte beschreiben Sie kurz, "
+                "was Sie im Rahmen Ihres Stellenwechsels klären möchten."
+            )
+            col_ja, col_nein, _col_sp = st.columns([1, 1, 3])
+            with col_ja:
+                if st.button("Ja, stimmt so", key="sparring_ja", type="primary",
+                             use_container_width=True):
+                    st.session_state.sparring_messages.append(
+                        {"role": "user", "content": "Ja"}
+                    )
+                    st.session_state.sparring_messages.append(
+                        {"role": "assistant", "content": _anliegen_msg}
+                    )
+                    st.session_state.sparring_data_confirmed = True
+                    st.rerun()
+            with col_nein:
+                if st.button("Nein, korrigieren", key="sparring_nein",
+                             use_container_width=True):
+                    st.session_state.sparring_messages.append(
+                        {"role": "user", "content": "Nein"}
+                    )
+                    st.session_state.sparring_messages.append({
+                        "role": "assistant",
+                        "content": (
+                            "Kein Problem. Welche Angaben möchten Sie korrigieren? "
+                            "Bitte nennen Sie die Felder, die ich anpassen soll."
+                        ),
+                    })
+                    st.session_state.sparring_data_confirmed = False
+                    st.rerun()
+        else:
+            st.markdown(
+                """
 <div style="margin-top:16px; margin-bottom:8px;
             background:#0a1929; border:1.5px solid #C9A84C;
             border-radius:10px; padding:16px 20px;">
@@ -1597,32 +1679,32 @@ def _sparring_buddy_chat() -> None:
   </div>
 </div>
 """,
-            unsafe_allow_html=True,
-        )
-        _input_cycle = st.session_state.get("sparring_input_cycle", 0)
-        col_in, col_btn = st.columns([5, 1])
-        with col_in:
-            user_input = st.text_input(
-                "Ihre Antwort",
-                placeholder="Schreiben Sie hier Ihre Antwort…",
-                key=f"sparring_input_{_input_cycle}",
-                label_visibility="collapsed",
+                unsafe_allow_html=True,
             )
-        with col_btn:
-            send = st.button(
-                "Senden",
-                key="sparring_send",
-                type="primary",
-                use_container_width=True,
-            )
-        if send and user_input.strip():
-            st.session_state.sparring_messages.append(
-                {"role": "user", "content": user_input.strip()}
-            )
-            st.session_state.sparring_input_cycle = _input_cycle + 1
-            with st.spinner("HelveVista schreibt…"):
-                _sparring_llm_response()
-            st.rerun()
+            _input_cycle = st.session_state.get("sparring_input_cycle", 0)
+            col_in, col_btn = st.columns([5, 1])
+            with col_in:
+                user_input = st.text_input(
+                    "Ihre Antwort",
+                    placeholder="Schreiben Sie hier Ihre Antwort…",
+                    key=f"sparring_input_{_input_cycle}",
+                    label_visibility="collapsed",
+                )
+            with col_btn:
+                send = st.button(
+                    "Senden",
+                    key="sparring_send",
+                    type="primary",
+                    use_container_width=True,
+                )
+            if send and user_input.strip():
+                st.session_state.sparring_messages.append(
+                    {"role": "user", "content": user_input.strip()}
+                )
+                st.session_state.sparring_input_cycle = _input_cycle + 1
+                with st.spinner("HelveVista schreibt…"):
+                    _sparring_llm_response()
+                st.rerun()
 
     # E) COMPLETION
     if st.session_state.sparring_complete:
