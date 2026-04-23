@@ -561,6 +561,8 @@ def _init_session() -> None:
         "case_id":             None,
         # HelveVista 2.0 additions
         "selected_option":        None,    # "A" | "B" | "C" | "D"
+        "pending_option":         None,    # option letter awaiting reuse decision
+        "data_reuse_choice":      None,    # "reuse" | "fresh"
         "profile_complete":       False,
         "profile_data":           {},
         "chat_open":              False,

@@ -65,6 +65,31 @@ _STATUS_MAP: dict[str, tuple[str, str]] = {
     "warten":           ("⏳ Warten",           HV_MUTED),
 }
 
+# Profile fields that signal meaningful data has been collected
+_PROFILE_MEANINGFUL = ("vorname", "geburtsjahr")
+
+# Keys that indicate extracted document data exists
+_DOC_KEYS = (
+    "freizuegigkeit_chf", "ahv_nummer", "koordinationsabzug_chf",
+    "ik_auszug", "beitragsjahre",
+)
+
+# What each option still needs from the user (shown in the reuse summary)
+_OPTION_MISSING: dict[str, dict[str, str]] = {
+    "stellenwechsel": {
+        "A": "Vorsorgeausweis (PDF oder Bild)",
+        "B": "Angaben zu alter und neuer Pensionskasse",
+        "C": "Kurze Beschreibung Ihrer Situation",
+        "D": "Vorsorgeausweis und Angaben zum geplanten Einkauf",
+    },
+    "revue_avs": {
+        "A": "IK-Auszug (PDF oder Bild)",
+        "B": "Kontaktdaten der AHV-Ausgleichskasse",
+        "C": "Kurze Beschreibung Ihrer Situation",
+        "D": "IK-Auszug und Informationen zu Beitragslücken",
+    },
+}
+
 
 def get_status_badge(status: str) -> tuple[str, str]:
     """Return (label, color) for a status key. Falls back to not_started."""
@@ -76,8 +101,53 @@ def get_option_config(scenario: str) -> list[dict]:
     return _OPTION_CONFIG.get(scenario, [])
 
 
+def _has_reusable_data() -> bool:
+    """True when profile has meaningful fields AND extracted document data exists."""
+    profile = st.session_state.get("profile_data", {})
+    if not any(profile.get(k) for k in _PROFILE_MEANINGFUL):
+        return False
+    for source_key in ("extracted_doc_data", "extracted_doc_info"):
+        doc = st.session_state.get(source_key) or {}
+        if any(doc.get(k) for k in _DOC_KEYS):
+            return True
+    return any(profile.get(k) for k in _DOC_KEYS)
+
+
+def _data_summary(scenario: str, option: str) -> str:
+    """Return a markdown block listing known data and what's still needed."""
+    profile = st.session_state.get("profile_data", {})
+    extracted = (
+        st.session_state.get("extracted_doc_data")
+        or st.session_state.get("extracted_doc_info")
+        or {}
+    )
+    lines = ["**Bekannte Daten:**"]
+    if profile.get("vorname"):
+        name = f"{profile['vorname']} {profile.get('nachname', '')}".strip()
+        lines.append(f"- Name: {name}")
+    if profile.get("geburtsjahr"):
+        lines.append(f"- Geburtsjahr: {profile['geburtsjahr']}")
+    if extracted.get("freizuegigkeit_chf"):
+        lines.append(f"- Freizügigkeitsguthaben: CHF {extracted['freizuegigkeit_chf']:,}")
+    if extracted.get("ahv_nummer"):
+        lines.append(f"- AHV-Nummer: {extracted['ahv_nummer']}")
+    if extracted.get("koordinationsabzug_chf"):
+        lines.append(f"- Koordinationsabzug: CHF {extracted['koordinationsabzug_chf']:,}")
+    if extracted.get("beitragsjahre"):
+        lines.append(f"- Beitragsjahre AHV: {extracted['beitragsjahre']}")
+    missing = _OPTION_MISSING.get(scenario, {}).get(option)
+    if missing:
+        lines.append(f"\n**Noch benötigt für Option {option}:** {missing}")
+    return "\n".join(lines)
+
+
 def render(scenario: str) -> None:
     """Render the 2×2 option picker for the given scenario."""
+    pending = st.session_state.get("pending_option")
+    if pending:
+        _render_reuse_prompt(scenario, pending)
+        return
+
     label = "STELLENWECHSEL" if scenario == "stellenwechsel" else "REVUE AVS"
     statuses: dict = st.session_state.option_statuses.get(scenario, {})
     options = get_option_config(scenario)
@@ -102,6 +172,58 @@ def render(scenario: str) -> None:
         st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
 
 
+def _render_reuse_prompt(scenario: str, option: str) -> None:
+    """Show the data-reuse prompt, or skip directly to the option if no data exists."""
+    if not _has_reusable_data():
+        st.session_state.selected_option = option
+        st.session_state.pop("pending_option", None)
+        st.session_state["data_reuse_choice"] = "fresh"
+        st.session_state.option_statuses.setdefault(scenario, {}).setdefault(option, "in_bearbeitung")
+        st.rerun()
+        return
+
+    st.markdown(
+        '<h2 style="margin-bottom:.25rem;">Daten übernehmen?</h2>'
+        f'<p style="color:{HV_MUTED};font-size:.88rem;margin-bottom:1.2rem;">'
+        "Möchten Sie mit den bereits hochgeladenen Daten fortfahren?</p>",
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        st.markdown(_data_summary(scenario, option))
+
+    col_ja, col_nein = st.columns(2)
+    with col_ja:
+        if st.button(
+            "Ja, Daten übernehmen",
+            key="btn_reuse_ja",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.selected_option = option
+            st.session_state.pop("pending_option", None)
+            st.session_state["data_reuse_choice"] = "reuse"
+            st.session_state.option_statuses.setdefault(scenario, {}).setdefault(option, "in_bearbeitung")
+            st.rerun()
+    with col_nein:
+        if st.button(
+            "Nein, neu beginnen",
+            key="btn_reuse_nein",
+            use_container_width=True,
+        ):
+            st.session_state.selected_option = option
+            st.session_state.pop("pending_option", None)
+            st.session_state["data_reuse_choice"] = "fresh"
+            st.session_state["extracted_doc_data"] = {}
+            st.session_state.option_statuses.setdefault(scenario, {}).setdefault(option, "in_bearbeitung")
+            st.rerun()
+
+    st.markdown("<div style='margin-top:.5rem;'></div>", unsafe_allow_html=True)
+    if st.button("← Zurück zur Optionswahl", key="btn_reuse_back"):
+        st.session_state.pop("pending_option", None)
+        st.rerun()
+
+
 def _render_option_card(opt: dict, status: str, scenario: str) -> None:
     badge_label, badge_color = get_status_badge(status)
     st.markdown(
@@ -119,10 +241,12 @@ def _render_option_card(opt: dict, status: str, scenario: str) -> None:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Wählen →", key=f"btn_opt_{scenario}_{opt['letter']}", type="primary",
-                 use_container_width=True):
-        st.session_state.selected_option = opt["letter"]
-        statuses = st.session_state.option_statuses.setdefault(scenario, {})
-        if opt["letter"] not in statuses:
-            statuses[opt["letter"]] = "in_bearbeitung"
+    if st.button(
+        "Wählen →",
+        key=f"btn_opt_{scenario}_{opt['letter']}",
+        type="primary",
+        use_container_width=True,
+    ):
+        st.session_state.pop("data_reuse_choice", None)
+        st.session_state["pending_option"] = opt["letter"]
         st.rerun()
