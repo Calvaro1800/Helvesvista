@@ -98,9 +98,12 @@ DEMO_RESPONSES: dict[Actor, dict] = {
         "bvg_pflicht":             True,
     },
     Actor.AVS: {
-        "ik_auszug":     "verfügbar",
-        "beitragsjahre": 12,
-        "luecken":       0,
+        "ik_auszug_verfuegbar": True,
+        "beitragsjahre":        38,
+        "luecken":              2,
+        "lueckenjahre":         ["2018", "2019"],
+        "empfohlene_massnahme": "Freiwillige Nachzahlung für 2018–2019 möglich (max. 5 Jahre rückwirkend)",
+        "status":               "IK-Auszug bereitgestellt",
     },
 }
 
@@ -906,6 +909,7 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
             "\nExtrahiere aus dem Situationstext:\n"
             "- Geburtsdatum des Versicherten (falls vorhanden)\n"
             "- AHV-Nummer (falls im Vorsorgeausweis vorhanden)\n"
+            "- Beitragslücken (Perioden ohne AHV-Beiträge)\n"
             "\nBerechne die Beitragsjahre basierend auf dem Eintrittsdatum\n"
             "der ersten Anstellung (falls bekannt) bis heute (2026).\n"
             "\n"
@@ -914,7 +918,9 @@ def _simulate_llm(actor: Actor, context: dict) -> dict:
             "{\"ik_auszug_verfuegbar\": true, "
             "\"ahv_nummer\": \"<aus Vorsorgeausweis oder null>\", "
             "\"beitragsjahre\": <Zahl oder null>, "
-            "\"luecken\": 0, "
+            "\"luecken\": <Anzahl Lückenjahre oder 0>, "
+            "\"lueckenjahre\": [<Liste der Lückenjahre oder leere Liste>], "
+            "\"empfohlene_massnahme\": \"<konkrete Empfehlung basierend auf Lücken oder null>\", "
             "\"status\": \"IK-Auszug bereitgestellt\"}"
         )
 
@@ -1097,7 +1103,9 @@ MANDATORY_FIELDS_AVS = [
     "name",
     "geburtsdatum",
     "ahv_nummer",
+    "ik_auszug_vorhanden",
     "grund_der_anfrage",
+    "luecken_beitraege",
     "situation_beschreibung",
 ]
 
@@ -1134,6 +1142,8 @@ FIELD_LABELS_DE = {
     "koordinationsabzug_chf": "Koordinationsabzug",
     "geburtsdatum":           "Geburtsdatum",
     "grund_der_anfrage":      "Grund der AHV-Anfrage",
+    "ik_auszug_vorhanden":    "IK-Auszug vorhanden",
+    "luecken_beitraege":      "Beitragsunterbrüche",
     "situation_beschreibung": "Beschreibung der Situation",
 }
 
@@ -1147,28 +1157,49 @@ def _sparring_extract_info(messages: list) -> dict:
     import anthropic
     try:
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        system = (
-            "Analysiere dieses Gespräch und extrahiere alle genannten Informationen. "
-            "Antworte NUR mit JSON, kein Text davor oder danach:\n"
-            "{\n"
-            '  "name": null,\n'
-            '  "geburtsdatum": null,\n'
-            '  "ahv_nummer": null,\n'
-            '  "alter_arbeitgeber": null,\n'
-            '  "alter_arbeitgeber_ort": null,\n'
-            '  "neuer_arbeitgeber": null,\n'
-            '  "neuer_arbeitgeber_ort": null,\n'
-            '  "austrittsdatum": null,\n'
-            '  "eintrittsdatum": null,\n'
-            '  "email_alte_pk": null,\n'
-            '  "email_neue_pk": null,\n'
-            '  "freizuegigkeit_chf": null,\n'
-            '  "koordinationsabzug_chf": null,\n'
-            '  "versicherter_lohn": null,\n'
-            '  "situation_beschreibung": null\n'
-            "}\n"
-            "Setze null wenn nicht erwähnt. Nur JSON."
-        )
+        scenario_extract = st.session_state.get("selected_scenario", "stellenwechsel")
+        if scenario_extract == "revue_avs":
+            system = (
+                "Analysiere dieses Gespräch und extrahiere alle genannten Informationen. "
+                "Antworte NUR mit JSON, kein Text davor oder danach:\n"
+                "{\n"
+                '  "name": null,\n'
+                '  "geburtsdatum": null,\n'
+                '  "ahv_nummer": null,\n'
+                '  "ik_auszug_vorhanden": null,\n'
+                '  "grund_der_anfrage": null,\n'
+                '  "luecken_beitraege": null,\n'
+                '  "situation_beschreibung": null\n'
+                "}\n"
+                "Für ik_auszug_vorhanden: 'Ja' oder 'Nein'. "
+                "Für grund_der_anfrage: einer von — Beitragslücken prüfen / Rentenvorausberechnung / Fehler korrigieren / Anderes. "
+                "Für luecken_beitraege: Beschreibung von Unterbrüchen (Ausland, Teilzeit, Unterbruch) oder 'Keine'. "
+                "Für ahv_nummer: Nummer oder 'unbekannt'. "
+                "Setze null wenn nicht erwähnt. Nur JSON."
+            )
+        else:
+            system = (
+                "Analysiere dieses Gespräch und extrahiere alle genannten Informationen. "
+                "Antworte NUR mit JSON, kein Text davor oder danach:\n"
+                "{\n"
+                '  "name": null,\n'
+                '  "geburtsdatum": null,\n'
+                '  "ahv_nummer": null,\n'
+                '  "alter_arbeitgeber": null,\n'
+                '  "alter_arbeitgeber_ort": null,\n'
+                '  "neuer_arbeitgeber": null,\n'
+                '  "neuer_arbeitgeber_ort": null,\n'
+                '  "austrittsdatum": null,\n'
+                '  "eintrittsdatum": null,\n'
+                '  "email_alte_pk": null,\n'
+                '  "email_neue_pk": null,\n'
+                '  "freizuegigkeit_chf": null,\n'
+                '  "koordinationsabzug_chf": null,\n'
+                '  "versicherter_lohn": null,\n'
+                '  "situation_beschreibung": null\n'
+                "}\n"
+                "Setze null wenn nicht erwähnt. Nur JSON."
+            )
         msg = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=512,
@@ -1197,13 +1228,24 @@ def _sparring_generate_situation() -> str:
         merged.update(st.session_state.sparring_collected)
 
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-        prompt = (
-            "Schreibe einen deutschen Fliesstext (3-5 Sätze) in der Ich-Form "
-            "des Versicherten, der die Situation für HelveVista beschreibt. "
-            "Enthalte: Name, Stellenwechsel-Details, Arbeitgeber, Daten, "
-            "Vorsorgewunsch. Professionell und vollständig.\n"
-            f"Daten: {json.dumps(merged, ensure_ascii=False)}"
-        )
+        _scenario_gen = st.session_state.get("selected_scenario", "stellenwechsel")
+        if _scenario_gen == "revue_avs":
+            prompt = (
+                "Schreibe einen deutschen Fliesstext (3-5 Sätze) in der Ich-Form "
+                "des Versicherten, der die AHV-Situation für HelveVista beschreibt. "
+                "Enthalte: Name, Geburtsdatum, Grund der AHV-Anfrage, "
+                "IK-Auszug-Status, Beitragsunterbrüche falls vorhanden. "
+                "Professionell und vollständig.\n"
+                f"Daten: {json.dumps(merged, ensure_ascii=False)}"
+            )
+        else:
+            prompt = (
+                "Schreibe einen deutschen Fliesstext (3-5 Sätze) in der Ich-Form "
+                "des Versicherten, der die Situation für HelveVista beschreibt. "
+                "Enthalte: Name, Stellenwechsel-Details, Arbeitgeber, Daten, "
+                "Vorsorgewunsch. Professionell und vollständig.\n"
+                f"Daten: {json.dumps(merged, ensure_ascii=False)}"
+            )
         msg = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=512,
@@ -1253,37 +1295,68 @@ def _sparring_llm_response() -> None:
             if v
         ) or "  (keine vorausgefüllten Daten)"
 
-        system = (
-            "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
-            "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
-            f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
-            f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
-            "WICHTIG: Der Nutzer muss IMMER seine Situation in "
-            "eigenen Worten beschreiben (Feld: Beschreibung der "
-            "Situation). Frage danach ZULETZT, nachdem alle anderen "
-            "Pflichtfelder gesammelt wurden. Ohne diese Beschreibung "
-            "ist der Fall NICHT vollständig.\n\n"
-            "KOMMUNIKATIONSSTIL:\n"
-            "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
-            "- Erkläre IMMER kurz WARUM du diese Information benötigst\n"
-            "  Beispiel: 'Damit HelveVista Ihre alte Pensionskasse direkt "
-            "kontaktieren kann, benötigen wir deren E-Mail-Adresse.'\n"
-            "- Gruppiere logisch zusammengehörige Fragen:\n"
-            "  Gruppe 1: Name + Geburtsdatum (Identifikation)\n"
-            "  Gruppe 2: Alter Arbeitgeber + Ort + Austrittsdatum "
-            "(bisherige Anstellung)\n"
-            "  Gruppe 3: Neuer Arbeitgeber + Ort + Eintrittsdatum "
-            "(neue Anstellung)\n"
-            "  Gruppe 4: E-Mail alte PK + E-Mail neue PK "
-            "(für direkte Kontaktaufnahme)\n"
-            "- Maximal 1 Gruppe pro Nachricht\n"
-            "- Bestätige erhaltene Informationen kurz und freundlich\n"
-            "- Frage NUR nach fehlenden Pflichtangaben\n"
-            "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf "
-            "neuer Zeile: [SPARRING_COMPLETE]\n"
-            "- Ausschliesslich Deutsch\n"
-            "- Ton: professionell aber warm — wie ein erfahrener Berater"
-        )
+        if scenario == "revue_avs":
+            system = (
+                "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
+                "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch "
+                "zur AHV-Situation des Versicherten.\n\n"
+                f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
+                f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
+                "WICHTIG: Der Nutzer muss IMMER seine Situation in "
+                "eigenen Worten beschreiben (Feld: Beschreibung der "
+                "Situation). Frage danach ZULETZT. Ohne diese Beschreibung "
+                "ist der Fall NICHT vollständig.\n\n"
+                "KOMMUNIKATIONSSTIL:\n"
+                "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
+                "- Erkläre IMMER kurz WARUM du diese Information benötigst\n"
+                "- Gruppiere logisch zusammengehörige Fragen:\n"
+                "  Gruppe 1: Name + Geburtsdatum (Identifikation)\n"
+                "  Gruppe 2: AHV-Nummer — falls unbekannt, 'unbekannt' eintragen\n"
+                "  Gruppe 3: IK-Auszug vorhanden? (Ja/Nein) + Grund der AHV-Anfrage\n"
+                "            (Beitragslücken prüfen / Rentenvorausberechnung / "
+                "Fehler korrigieren / Anderes)\n"
+                "  Gruppe 4: Beitragsunterbrüche — Perioden ohne Beiträge "
+                "(Ausland, Teilzeit, Unterbruch)? Falls keine, 'Keine' eintragen\n"
+                "- Maximal 1 Gruppe pro Nachricht\n"
+                "- Bestätige erhaltene Informationen kurz und freundlich\n"
+                "- Frage NUR nach fehlenden Pflichtangaben\n"
+                "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf "
+                "neuer Zeile: [SPARRING_COMPLETE]\n"
+                "- Ausschliesslich Deutsch\n"
+                "- Ton: professionell aber warm — wie ein erfahrener AHV-Berater"
+            )
+        else:
+            system = (
+                "Du bist HelveVista, ein professioneller Schweizer Vorsorge-Assistent.\n"
+                "Führe ein strukturiertes, pädagogisches Gespräch auf Deutsch.\n\n"
+                f"BEREITS BESTÄTIGT — diese Felder NICHT nochmals fragen:\n{pre_filled_summary}\n\n"
+                f"NOCH FEHLENDE PFLICHTANGABEN:\n{', '.join(missing_list)}\n\n"
+                "WICHTIG: Der Nutzer muss IMMER seine Situation in "
+                "eigenen Worten beschreiben (Feld: Beschreibung der "
+                "Situation). Frage danach ZULETZT, nachdem alle anderen "
+                "Pflichtfelder gesammelt wurden. Ohne diese Beschreibung "
+                "ist der Fall NICHT vollständig.\n\n"
+                "KOMMUNIKATIONSSTIL:\n"
+                "- Stelle zusammengehörige Fragen ZUSAMMEN in einer einzigen Nachricht\n"
+                "- Erkläre IMMER kurz WARUM du diese Information benötigst\n"
+                "  Beispiel: 'Damit HelveVista Ihre alte Pensionskasse direkt "
+                "kontaktieren kann, benötigen wir deren E-Mail-Adresse.'\n"
+                "- Gruppiere logisch zusammengehörige Fragen:\n"
+                "  Gruppe 1: Name + Geburtsdatum (Identifikation)\n"
+                "  Gruppe 2: Alter Arbeitgeber + Ort + Austrittsdatum "
+                "(bisherige Anstellung)\n"
+                "  Gruppe 3: Neuer Arbeitgeber + Ort + Eintrittsdatum "
+                "(neue Anstellung)\n"
+                "  Gruppe 4: E-Mail alte PK + E-Mail neue PK "
+                "(für direkte Kontaktaufnahme)\n"
+                "- Maximal 1 Gruppe pro Nachricht\n"
+                "- Bestätige erhaltene Informationen kurz und freundlich\n"
+                "- Frage NUR nach fehlenden Pflichtangaben\n"
+                "- Wenn ALLE Pflichtangaben vollständig: schreibe exakt auf "
+                "neuer Zeile: [SPARRING_COMPLETE]\n"
+                "- Ausschliesslich Deutsch\n"
+                "- Ton: professionell aber warm — wie ein erfahrener Berater"
+            )
 
         client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
         msg = client.messages.create(
@@ -1344,14 +1417,18 @@ def _sparring_buddy_chat() -> None:
                 needs_update = True
 
     collected = st.session_state.sparring_collected
+    _scenario_chat = st.session_state.get("selected_scenario", "stellenwechsel")
+    _active_chat = (
+        MANDATORY_FIELDS_AVS if _scenario_chat == "revue_avs" else MANDATORY_FIELDS
+    )
     confirmed_list = [
         FIELD_LABELS_DE.get(k, k)
-        for k in FIELD_LABELS_DE
+        for k in _active_chat
         if collected.get(k)
     ]
     still_missing = [
         FIELD_LABELS_DE.get(f, f)
-        for f in MANDATORY_FIELDS
+        for f in _active_chat
         if not collected.get(f)
     ]
 
@@ -1367,13 +1444,21 @@ def _sparring_buddy_chat() -> None:
     # Opening message — only if no messages yet
     if not st.session_state.sparring_messages:
         if confirmed_list:
+            _doc_label = "IK-Auszug" if _scenario_chat == "revue_avs" else "Vorsorgeausweis"
             opening = (
-                "Guten Tag! Ich habe Ihren Vorsorgeausweis gelesen "
+                f"Guten Tag! Ich habe Ihren {_doc_label} gelesen "
                 "und folgende Angaben bereits erfasst:<br><br>"
                 f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
                 "<br>Noch benötigt:<br>"
                 f"<span style='color:#C9A84C;font-size:0.85rem;'>{missing_str}</span>"
                 "<br>Dürfen wir beginnen?"
+            )
+        elif _scenario_chat == "revue_avs":
+            opening = (
+                "Guten Tag! Ich bin HelveVista, Ihr persönlicher "
+                "AHV-Assistent. Sie können optional Ihren IK-Auszug "
+                "hochladen — ich lese ihn automatisch und spare Ihnen "
+                "viele Fragen. Wie heissen Sie vollständig?"
             )
         else:
             opening = (
@@ -1388,8 +1473,9 @@ def _sparring_buddy_chat() -> None:
         )
     elif needs_update and len(st.session_state.sparring_messages) == 1:
         # PDF uploaded after opening message — refresh it
+        _doc_label = "IK-Auszug" if _scenario_chat == "revue_avs" else "Vorsorgeausweis"
         updated_opening = (
-            "Ich habe Ihren Vorsorgeausweis soeben gelesen "
+            f"Ich habe Ihren {_doc_label} soeben gelesen "
             "und folgende Angaben erfasst:<br><br>"
             f"<span style='color:#6fcf97;font-size:0.85rem;'>{confirmed_str}</span>"
             "<br>Noch benötigt:<br>"
@@ -1575,24 +1661,39 @@ def _vs_step_1_situation() -> None:
     _render_steps(1)
 
     st.markdown('<div class="hv-label">Schritt 1 von 6</div>', unsafe_allow_html=True)
+    _s1_scenario = st.session_state.get("selected_scenario", "stellenwechsel")
     st.markdown("## Ihre Situation")
-    st.markdown(
-        "Beschreiben Sie Ihre Situation auf Deutsch. HelveVista erkennt automatisch, "
-        "welche Vorsorgeeinrichtungen kontaktiert werden müssen, und koordiniert "
-        "den gesamten Prozess sicher und nachvollziehbar für Sie."
-    )
+    if _s1_scenario == "revue_avs":
+        st.markdown(
+            "Beschreiben Sie Ihre AHV-Situation auf Deutsch. HelveVista klärt mit "
+            "der zuständigen AHV-Ausgleichskasse und beantwortet Ihre Fragen zu "
+            "Beitragsjahren, Lücken und Rentenberechnung."
+        )
+    else:
+        st.markdown(
+            "Beschreiben Sie Ihre Situation auf Deutsch. HelveVista erkennt automatisch, "
+            "welche Vorsorgeeinrichtungen kontaktiert werden müssen, und koordiniert "
+            "den gesamten Prozess sicher und nachvollziehbar für Sie."
+        )
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
     # ── Document upload (Feature 2) ────────────────────────────────────────────
-    st.markdown("#### Dokumente hochladen (optional)")
-    st.caption(
-        "Laden Sie relevante Dokumente hoch. HelveVista extrahiert automatisch "
-        "Vorsorge- und Kontaktinformationen."
-    )
+    if _s1_scenario == "revue_avs":
+        st.markdown("#### IK-Auszug hochladen (optional)")
+        st.caption(
+            "Laden Sie Ihren IK-Auszug hoch, falls vorhanden. HelveVista extrahiert "
+            "automatisch Beitragsjahre, Lücken und Ihre AHV-Nummer."
+        )
+    else:
+        st.markdown("#### Dokumente hochladen (optional)")
+        st.caption(
+            "Laden Sie relevante Dokumente hoch. HelveVista extrahiert automatisch "
+            "Vorsorge- und Kontaktinformationen."
+        )
 
     uploaded_files = st.file_uploader(
-        "Dokumente hochladen",
+        "IK-Auszug hochladen" if _s1_scenario == "revue_avs" else "Dokumente hochladen",
         accept_multiple_files=True,
         type=["pdf", "png", "jpg", "jpeg"],
         key="doc_upload",
@@ -1657,14 +1758,25 @@ def _vs_step_2_analyse() -> None:
                 from llm.structurer import structure_user_input  # noqa: PLC0415
                 ctx = structure_user_input(raw)
         else:
-            ctx = {
-                "use_case":        "STELLENWECHSEL",
-                "actors_involved": ["OLD_PK", "NEW_PK"],
-                "avs_required":    False,
-                "user_summary":    raw,
-                "missing_info":    [],
-                "actors_enum":     [Actor.OLD_PK, Actor.NEW_PK],
-            }
+            _s2_scenario = st.session_state.get("selected_scenario", "stellenwechsel")
+            if _s2_scenario == "revue_avs":
+                ctx = {
+                    "use_case":        "REVUE_AVS",
+                    "actors_involved": ["AVS"],
+                    "avs_required":    True,
+                    "user_summary":    raw,
+                    "missing_info":    [],
+                    "actors_enum":     [Actor.AVS],
+                }
+            else:
+                ctx = {
+                    "use_case":        "STELLENWECHSEL",
+                    "actors_involved": ["OLD_PK", "NEW_PK"],
+                    "avs_required":    False,
+                    "user_summary":    raw,
+                    "missing_info":    [],
+                    "actors_enum":     [Actor.OLD_PK, Actor.NEW_PK],
+                }
         st.session_state.structured_ctx = ctx
 
         # Persist structured context (without non-serialisable enum objects)
@@ -2253,58 +2365,87 @@ def _vs_step_5_ergebnis() -> None:
     _render_pending_clarifications(case)
 
     # LLM-generated case summary (once)
+    _ergebnis_scenario = st.session_state.get("selected_scenario", "stellenwechsel")
     if st.session_state.llm_summary is None and _use_llm():
         with st.spinner("Zusammenfassung wird erstellt…"):
             try:
                 import anthropic as _anthropic  # noqa: PLC0415
                 _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-                _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
-                _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
-                _avs    = inst_resp.get(Actor.AVS.value, {})
-                # Prefer institution response values; fall back to vorsorge_ausweis
-                _freizuegigkeit_chf = (
-                    _old_pk.get("freizuegigkeit_chf")
-                    or vorsorge.get("freizuegigkeit_chf")
-                    or vorsorge.get("gesamtguthaben_chf")
-                )
-                _austrittsdatum = _old_pk.get("austrittsdatum")
-                _status_old     = _old_pk.get("status")
-                _eintrittsdatum = _new_pk.get("eintrittsdatum")
-                _bvg_koord = (
-                    _new_pk.get("bvg_koordinationsabzug")
-                    or vorsorge.get("koordinationsabzug_chf")
-                    or vorsorge.get("bvg_koordinationsabzug")
-                )
-                _bvg_pflicht    = _new_pk.get("bvg_pflicht")
-                _beitragsjahre  = _avs.get("beitragsjahre")
-                _avs_status     = _avs.get("status")
-                _user_name      = case.get("user_name", "—")
-                avs_line = (
-                    f"- AHV-Beitragsjahre: {_beitragsjahre or 'nicht angegeben'}"
-                    if _avs else ""
-                )
-                _user_msg = (
-                    f"Name des Versicherten: {_user_name}\n\n"
-                    f"Originale Situation: {case.get('situation', '—')}\n\n"
-                    f"Antwort Alte Pensionskasse:\n"
-                    f"  - freizuegigkeit_chf: {_freizuegigkeit_chf}\n"
-                    f"  - austrittsdatum: {_austrittsdatum}\n"
-                    f"  - status: {_status_old}\n\n"
-                    f"Antwort Neue Pensionskasse:\n"
-                    f"  - eintrittsdatum: {_eintrittsdatum}\n"
-                    f"  - bvg_koordinationsabzug: {_bvg_koord}\n"
-                    f"  - bvg_pflicht: {_bvg_pflicht}"
-                    + (
-                        f"\n\nAntwort AHV-Ausgleichskasse:\n"
-                        f"  - beitragsjahre: {_beitragsjahre}\n"
-                        f"  - status: {_avs_status}"
+                _user_name = case.get("user_name", "—")
+
+                if _ergebnis_scenario == "revue_avs":
+                    _avs_r = inst_resp.get(Actor.AVS.value, {})
+                    _beitragsjahre_r = _avs_r.get("beitragsjahre")
+                    _luecken_r       = _avs_r.get("luecken")
+                    _ik_ok_r         = _avs_r.get("ik_auszug_verfuegbar") or (
+                        _avs_r.get("ik_auszug") == "verfügbar"
+                    )
+                    _massnahme_r     = _avs_r.get("empfohlene_massnahme", "")
+                    _avs_status_r    = _avs_r.get("status", "")
+                    _user_msg = (
+                        f"Name des Versicherten: {_user_name}\n\n"
+                        f"Originale Situation: {case.get('situation', '—')}\n\n"
+                        f"Antwort AHV-Ausgleichskasse:\n"
+                        f"  - ik_auszug_verfuegbar: {_ik_ok_r}\n"
+                        f"  - beitragsjahre: {_beitragsjahre_r}\n"
+                        f"  - luecken: {_luecken_r}\n"
+                        f"  - empfohlene_massnahme: {_massnahme_r}\n"
+                        f"  - status: {_avs_status_r}"
+                    )
+                    _system_summary = (
+                        f"Du bist HelveVista. Schreibe eine präzise, persönliche Zusammenfassung "
+                        f"in 3-4 Sätzen für {_user_name} zur AHV-Revue.\n"
+                        "Verwende NUR die folgenden Daten — erfinde NICHTS:\n"
+                        f"- IK-Auszug verfügbar: {'Ja' if _ik_ok_r else 'Nein'}\n"
+                        f"- Beitragsjahre: {_beitragsjahre_r or 'nicht angegeben'}\n"
+                        f"- Beitragslücken: {_luecken_r if _luecken_r is not None else 'nicht angegeben'}\n"
+                        f"- Empfohlene Massnahme: {_massnahme_r or 'nicht angegeben'}\n"
+                        "Wenn ein Wert 'nicht angegeben' ist, erwähne ihn NICHT. "
+                        "Schreibe in der Du-Form, professionell und klar."
+                    )
+                else:
+                    _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
+                    _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
+                    _avs    = inst_resp.get(Actor.AVS.value, {})
+                    _freizuegigkeit_chf = (
+                        _old_pk.get("freizuegigkeit_chf")
+                        or vorsorge.get("freizuegigkeit_chf")
+                        or vorsorge.get("gesamtguthaben_chf")
+                    )
+                    _austrittsdatum = _old_pk.get("austrittsdatum")
+                    _status_old     = _old_pk.get("status")
+                    _eintrittsdatum = _new_pk.get("eintrittsdatum")
+                    _bvg_koord = (
+                        _new_pk.get("bvg_koordinationsabzug")
+                        or vorsorge.get("koordinationsabzug_chf")
+                        or vorsorge.get("bvg_koordinationsabzug")
+                    )
+                    _bvg_pflicht   = _new_pk.get("bvg_pflicht")
+                    _beitragsjahre = _avs.get("beitragsjahre")
+                    _avs_status    = _avs.get("status")
+                    avs_line = (
+                        f"- AHV-Beitragsjahre: {_beitragsjahre or 'nicht angegeben'}"
                         if _avs else ""
                     )
-                )
-                _resp = _client.messages.create(
-                    model="claude-sonnet-4-20250514",
-                    max_tokens=512,
-                    system=(
+                    _user_msg = (
+                        f"Name des Versicherten: {_user_name}\n\n"
+                        f"Originale Situation: {case.get('situation', '—')}\n\n"
+                        f"Antwort Alte Pensionskasse:\n"
+                        f"  - freizuegigkeit_chf: {_freizuegigkeit_chf}\n"
+                        f"  - austrittsdatum: {_austrittsdatum}\n"
+                        f"  - status: {_status_old}\n\n"
+                        f"Antwort Neue Pensionskasse:\n"
+                        f"  - eintrittsdatum: {_eintrittsdatum}\n"
+                        f"  - bvg_koordinationsabzug: {_bvg_koord}\n"
+                        f"  - bvg_pflicht: {_bvg_pflicht}"
+                        + (
+                            f"\n\nAntwort AHV-Ausgleichskasse:\n"
+                            f"  - beitragsjahre: {_beitragsjahre}\n"
+                            f"  - status: {_avs_status}"
+                            if _avs else ""
+                        )
+                    )
+                    _system_summary = (
                         f"Du bist HelveVista. Schreibe eine präzise, persönliche Zusammenfassung "
                         f"in 3-4 Sätzen für {_user_name}.\n"
                         "Verwende NUR die folgenden Daten — erfinde NICHTS:\n"
@@ -2315,25 +2456,40 @@ def _vs_step_5_ergebnis() -> None:
                         + (f"{avs_line}\n" if avs_line else "")
                         + "Wenn ein Wert 'nicht angegeben' ist, erwähne ihn NICHT. "
                         "Schreibe in der Du-Form, professionell und klar."
-                    ),
+                    )
+
+                _resp = _client.messages.create(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=512,
+                    system=_system_summary,
                     messages=[{"role": "user", "content": _user_msg}],
                 )
                 st.session_state.llm_summary = _resp.content[0].text.strip()
             except Exception:
-                _old_pk = inst_resp.get(Actor.OLD_PK.value, {})
-                _new_pk = inst_resp.get(Actor.NEW_PK.value, {})
                 _name = case.get("user_name", "Versicherte/r")
-                _chf = (
-                    _old_pk.get("freizuegigkeit_chf")
-                    or vorsorge.get("freizuegigkeit_chf")
-                    or vorsorge.get("gesamtguthaben_chf")
-                )
-                _datum = _new_pk.get("eintrittsdatum", "—")
-                st.session_state.llm_summary = (
-                    f"Liebe/r {_name}, Ihr Stellenwechsel wurde koordiniert. "
-                    + (f"Ihr Freizügigkeitsguthaben von {_fmt_chf(_chf)} wird übertragen. " if isinstance(_chf, (int, float)) else "")
-                    + (f"Ihr Eintritt bei der neuen Pensionskasse ist per {_datum} bestätigt." if _datum and _datum != "—" else "")
-                )
+                if _ergebnis_scenario == "revue_avs":
+                    _avs_fb = inst_resp.get(Actor.AVS.value, {})
+                    _jahre_fb = _avs_fb.get("beitragsjahre")
+                    _luecken_fb = _avs_fb.get("luecken")
+                    st.session_state.llm_summary = (
+                        f"Liebe/r {_name}, Ihre AHV-Anfrage wurde bearbeitet. "
+                        + (f"Sie verfügen über {_jahre_fb} Beitragsjahre. " if _jahre_fb else "")
+                        + (f"Es wurden {_luecken_fb} Beitragslücke(n) festgestellt." if _luecken_fb else "Keine Beitragslücken festgestellt.")
+                    )
+                else:
+                    _old_pk_fb = inst_resp.get(Actor.OLD_PK.value, {})
+                    _new_pk_fb = inst_resp.get(Actor.NEW_PK.value, {})
+                    _chf = (
+                        _old_pk_fb.get("freizuegigkeit_chf")
+                        or vorsorge.get("freizuegigkeit_chf")
+                        or vorsorge.get("gesamtguthaben_chf")
+                    )
+                    _datum = _new_pk_fb.get("eintrittsdatum", "—")
+                    st.session_state.llm_summary = (
+                        f"Liebe/r {_name}, Ihr Stellenwechsel wurde koordiniert. "
+                        + (f"Ihr Freizügigkeitsguthaben von {_fmt_chf(_chf)} wird übertragen. " if isinstance(_chf, (int, float)) else "")
+                        + (f"Ihr Eintritt bei der neuen Pensionskasse ist per {_datum} bestätigt." if _datum and _datum != "—" else "")
+                    )
 
     if st.session_state.llm_summary:
         st.info(st.session_state.llm_summary)
