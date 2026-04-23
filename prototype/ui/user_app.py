@@ -4991,8 +4991,9 @@ def main() -> None:
         elif option == "C": avs_c.render(profile, case)
         elif option == "D": avs_d.render(profile, case)
 
-    # Floating chat panel (rendered when open, after all page content)
-    if st.session_state.get("chat_open"):
+    # Floating chat panel — skip on own-chat options (A, C, D) even if
+    # chat_open is stale from a previous page.
+    if st.session_state.get("chat_open") and option not in hv_chat._OWN_CHAT_OPTIONS:
         hv_chat.render_panel()
 
 
