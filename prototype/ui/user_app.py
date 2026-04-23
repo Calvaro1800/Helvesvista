@@ -797,6 +797,24 @@ def _render_sidebar() -> None:
                 icon = STATE_DISPLAY.get(process.state, ("—", "", ""))[0]
                 st.caption(f"{icon} {ACTOR_LABELS[actor]}: `{process.state.value}`")
 
+    # Auto-expand sidebar when entering Option B or D (once per option per session).
+    _cur_option = st.session_state.get("selected_option")
+    if _cur_option in ("B", "D"):
+        _flag = f"sidebar_auto_opened_{_cur_option}"
+        if not st.session_state.get(_flag):
+            st.session_state[_flag] = True
+            st.markdown(
+                """<script>
+                setTimeout(function(){
+                    var btn=window.parent.document.querySelector(
+                        '[data-testid="stSidebarCollapsedControl"]'
+                    );
+                    if(btn){btn.click();}
+                },300);
+                </script>""",
+                unsafe_allow_html=True,
+            )
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP PROGRESS BAR (Versicherter)
@@ -1874,7 +1892,10 @@ def _vs_step_2_analyse() -> None:
 
     st.markdown('<div class="hv-label" style="margin-top:0.5rem;">Erkannte Situation</div>', unsafe_allow_html=True)
     with st.container(border=True):
-        use_case = ctx.get("use_case", "STELLENWECHSEL").replace("_", " ").title()
+        if scenario == "revue_avs":
+            use_case = "AHV-Revue"
+        else:
+            use_case = ctx.get("use_case", "STELLENWECHSEL").replace("_", " ").title()
         st.markdown(f"**Verfahren:** {use_case}")
 
         if scenario == "revue_avs":
@@ -5016,7 +5037,6 @@ def main() -> None:
     # revue_avs_b is not imported: option B for both scenarios routes to the existing
     # _vs_step_* flow directly — revue_avs_b.py exists for spec completeness only.
 
-    hv_chat.inject()
     _inject_css()
 
     # Reset sparring state when the scenario changes while Option B is active.
@@ -5044,6 +5064,8 @@ def main() -> None:
     if not st.session_state.profile_complete:
         hv_profile.render()
         return
+
+    hv_chat.inject()
 
     if not st.session_state.selected_scenario:
         hv_dashboard.render()

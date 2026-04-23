@@ -449,6 +449,13 @@ def poll_inbox(case_id: str, actor_value: str) -> Optional[dict]:
         except ValueError:
             pass
 
+    # Expected sender: only accept replies from the institution we contacted.
+    inst_email = (
+        case.get("institution_emails", {})
+            .get(actor_value, "")
+            .strip().lower()
+    )
+
     for meta in messages:
         msg_id = meta["id"]
         msg    = service.users().messages().get(
@@ -459,6 +466,12 @@ def poll_inbox(case_id: str, actor_value: str) -> Optional[dict]:
         internal_date_ms = int(msg.get("internalDate", "0"))
         if internal_date_ms <= min_internal_date_ms:
             continue
+
+        # Sender validation: reject if From address doesn't match institution.
+        if inst_email:
+            from_addr = _extract_from_header(msg)
+            if inst_email not in from_addr:
+                continue
 
         body = _extract_body(msg)
         _mark_read(service, msg_id)
@@ -588,6 +601,13 @@ def poll_followup_inbox(
         except ValueError:
             pass
 
+    # Expected sender: only accept replies from the institution we contacted.
+    inst_email = (
+        case.get("institution_emails", {})
+            .get(actor_value, "")
+            .strip().lower()
+    )
+
     for meta in messages:
         msg_id = meta["id"]
         msg    = service.users().messages().get(
@@ -597,6 +617,12 @@ def poll_followup_inbox(
         internal_date_ms = int(msg.get("internalDate", "0"))
         if internal_date_ms <= min_internal_date_ms:
             continue
+
+        # Sender validation: reject if From address doesn't match institution.
+        if inst_email:
+            from_addr = _extract_from_header(msg)
+            if inst_email not in from_addr:
+                continue
 
         body = _extract_body(msg)
         _mark_read(service, msg_id)
@@ -731,6 +757,18 @@ def _mark_read(service, message_id: str) -> None:
         ).execute()
     except Exception:  # noqa: BLE001
         pass
+
+
+def _extract_from_header(msg: dict) -> str:
+    """Extracts and normalises the From email address from a Gmail message dict."""
+    headers = msg.get("payload", {}).get("headers", [])
+    for h in headers:
+        if h.get("name", "").lower() == "from":
+            value = h.get("value", "")
+            if "<" in value and ">" in value:
+                return value.split("<")[1].split(">")[0].strip().lower()
+            return value.strip().lower()
+    return ""
 
 
 def _load_case() -> dict:

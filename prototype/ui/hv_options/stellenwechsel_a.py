@@ -12,8 +12,17 @@ import streamlit as st
 import anthropic
 from ui.hv_utils import extract_doc_info
 from ui.hv_styles import HV_GOLD, HV_MUTED, HV_BORDER, HV_CARD
+from ui.hv_option_chat import render_option_chat
 
 MODEL = "claude-sonnet-4-20250514"
+
+_CHAT_SYSTEM = (
+    "Du bist HelveVista, ein Bildungsassistent für das Schweizer BVG-System. "
+    "Du hilfst dem Nutzer, Begriffe im Vorsorgeausweis zu verstehen: "
+    "Freizügigkeitsguthaben, Koordinationsabzug, Deckungsgrad, Umwandlungssatz. "
+    "Klar, ohne Fachjargon, keine Berechnungen. Antworte auf Deutsch."
+)
+_CHAT_OPENING = "Ihr Vorsorgeausweis wurde erklärt. Haben Sie Fragen zu einem der Begriffe?"
 
 EXPLAINED_FIELDS = ("freizuegigkeit", "koordinationsabzug", "deckungsgrad", "umwandlungssatz")
 
@@ -119,3 +128,10 @@ def render(profile: dict, case: dict) -> None:
             )
 
     st.success("✅ Ihre Dokumente wurden erklärt. Status: Geklärt.")
+
+    render_option_chat(
+        session_key="chat_a_sw",
+        system_prompt=_CHAT_SYSTEM,
+        opening_msg=_CHAT_OPENING,
+        title="Fragen zum Vorsorgeausweis",
+    )

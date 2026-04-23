@@ -72,8 +72,9 @@ def inject() -> None:
         st.session_state["chat_messages_global"] = []
         st.session_state["_prev_chat_option"] = current_option
 
-    # Change 5: Disable floating chat on options that embed their own chat.
-    if current_option in _OWN_CHAT_OPTIONS:
+    # Suppress floating chat when no option is selected (picker page) or option
+    # has its own embedded chat.
+    if current_option is None or current_option in _OWN_CHAT_OPTIONS:
         st.session_state["chat_open"] = False
         return
 

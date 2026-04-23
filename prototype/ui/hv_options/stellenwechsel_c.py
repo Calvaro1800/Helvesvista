@@ -10,6 +10,7 @@ import re
 import streamlit as st
 import anthropic
 from ui.hv_styles import HV_GOLD, HV_MUTED
+from ui.hv_option_chat import render_option_chat
 
 MODEL = "claude-sonnet-4-20250514"
 
@@ -99,6 +100,20 @@ def render(profile: dict, case: dict) -> None:
         st.session_state.option_statuses.setdefault(scenario, {}).setdefault("C", "in_bearbeitung")
         st.session_state["sw_c_input_cycle"] = _input_cycle + 1
         st.rerun()
+
+    render_option_chat(
+        session_key="chat_c_sw",
+        system_prompt=(
+            "Du bist HelveVista, ein Experte für die berufliche Vorsorge (Säule 2) in der Schweiz. "
+            "Du hilfst Personen, die einen Stellenwechsel vollziehen oder geplant haben, ihre "
+            "Vorsorgesituation zu verstehen. Erkläre Freizügigkeit, Pensionskassentransfers, "
+            "BVG-Grundlagen und verwandte Themen klar und verständlich auf Deutsch. "
+            "Berechne keine Beträge. Antworte immer auf Deutsch."
+        ),
+        opening_msg="Haben Sie allgemeine Fragen zur beruflichen Vorsorge?",
+        title="Allgemeine Vorsorge-Fragen",
+        emoji="🗺️",
+    )
 
 
 def _llm_reply(messages: list[dict]) -> str:

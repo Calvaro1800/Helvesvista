@@ -11,6 +11,7 @@ import re
 import streamlit as st
 import anthropic
 from ui.hv_styles import HV_GOLD, HV_MUTED
+from ui.hv_option_chat import render_option_chat
 
 MODEL = "claude-sonnet-4-20250514"
 
@@ -95,6 +96,20 @@ def render(profile: dict, case: dict) -> None:
         st.session_state.option_statuses.setdefault(scenario, {}).setdefault("C", "in_bearbeitung")
         st.session_state["avs_c_input_cycle"] = _input_cycle + 1
         st.rerun()
+
+    render_option_chat(
+        session_key="chat_c_avs",
+        system_prompt=(
+            "Du bist HelveVista, ein Experte für das Schweizer AHV-System (1. Säule). "
+            "Du hilfst Nutzern, ihre AHV-Situation zu verstehen: IK-Auszug, Beitragslücken, "
+            "Rentenberechnung, Freiwilligenbeiträge und verwandte Themen. "
+            "Erkläre klar und verständlich auf Deutsch. Berechne keine Beträge. "
+            "Antworte immer auf Deutsch."
+        ),
+        opening_msg="Haben Sie allgemeine Fragen zur AHV oder Ihrer Vorsorgesituation?",
+        title="Allgemeine AHV-Fragen",
+        emoji="🗺️",
+    )
 
 
 def _llm_reply(messages: list[dict]) -> str:

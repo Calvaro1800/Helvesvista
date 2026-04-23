@@ -8,6 +8,15 @@ Never calculates amounts.
 from __future__ import annotations
 import streamlit as st
 from ui.hv_styles import HV_GOLD, HV_MUTED, HV_BORDER
+from ui.hv_option_chat import render_option_chat
+
+_CHAT_SYSTEM = (
+    "Du bist HelveVista, ein Bildungsassistent für das Schweizer BVG-System. "
+    "Du hilfst dem Nutzer, den freiwilligen Einkauf in die Pensionskasse (LPP-Einkauf) zu verstehen. "
+    "Themen: steuerliche Vorteile, Kapitalauswirkung, hypothekarische Implikationen, optimales Timing. "
+    "Keine konkreten Berechnungen. Antworte auf Deutsch."
+)
+_CHAT_OPENING = "Haben Sie Fragen zum freiwilligen Einkauf in Ihre Pensionskasse?"
 
 LPP_SECTIONS: list[dict] = [
     {
@@ -120,3 +129,10 @@ def render(profile: dict, case: dict) -> None:
             st.rerun()
         else:
             st.error("Fehler beim Senden. Bitte prüfen Sie die E-Mail-Adresse.")
+
+    render_option_chat(
+        session_key="chat_d_sw",
+        system_prompt=_CHAT_SYSTEM,
+        opening_msg=_CHAT_OPENING,
+        title="Fragen zum LPP-Einkauf",
+    )

@@ -13,8 +13,20 @@ import streamlit as st
 import anthropic
 from ui.hv_utils import extract_doc_info
 from ui.hv_styles import HV_GOLD, HV_MUTED
+from ui.hv_option_chat import render_option_chat
 
 MODEL = "claude-sonnet-4-20250514"
+
+_CHAT_SYSTEM = (
+    "Du bist HelveVista, ein Bildungsassistent für das Schweizer AHV-System. "
+    "Du hilfst dem Nutzer, den IK-Auszug (Individuelles Konto) zu verstehen: "
+    "Beitragsjahre, Beitragslücken, freiwillige Nachzahlungen. "
+    "Klar, ohne Fachjargon, keine Berechnungen. Antworte auf Deutsch."
+)
+_CHAT_OPENING = (
+    "Ihr IK-Auszug wurde erklärt. "
+    "Haben Sie Fragen zu Beitragsjahren, Lücken oder freiwilligen Nachzahlungen?"
+)
 
 _SYSTEM_PROMPT = (
     "Du bist HelveVista, ein Bildungsassistent für das Schweizer AHV-System. "
@@ -138,3 +150,10 @@ def render(profile: dict, case: dict) -> None:
             )
 
     st.success("✅ Ihr IK-Auszug wurde erklärt. Status: Geklärt.")
+
+    render_option_chat(
+        session_key="chat_a_avs",
+        system_prompt=_CHAT_SYSTEM,
+        opening_msg=_CHAT_OPENING,
+        title="Fragen zum IK-Auszug",
+    )

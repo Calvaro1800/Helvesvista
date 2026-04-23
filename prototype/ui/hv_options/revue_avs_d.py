@@ -9,6 +9,18 @@ from __future__ import annotations
 import uuid
 import streamlit as st
 from ui.hv_styles import HV_GOLD, HV_MUTED
+from ui.hv_option_chat import render_option_chat
+
+_CHAT_SYSTEM = (
+    "Du bist HelveVista, ein Bildungsassistent für das Schweizer AHV-System. "
+    "Du hilfst dem Nutzer zu verstehen, wie AHV-Beitragslücken geschlossen werden können. "
+    "Themen: Wer ist betroffen, Zeitfenster für Nachzahlungen, Ablauf der Nachzahlung. "
+    "Keine konkreten Beträge. Antworte auf Deutsch."
+)
+_CHAT_OPENING = (
+    "Haben Sie Fragen zu freiwilligen AHV-Nachzahlungen "
+    "oder zum Schliessen von Beitragslücken?"
+)
 
 AVS_SECTIONS: list[dict] = [
     {
@@ -106,3 +118,10 @@ def render(profile: dict, case: dict) -> None:
             st.rerun()
         else:
             st.error("Fehler beim Senden. Bitte prüfen Sie die E-Mail-Adresse.")
+
+    render_option_chat(
+        session_key="chat_d_avs",
+        system_prompt=_CHAT_SYSTEM,
+        opening_msg=_CHAT_OPENING,
+        title="Fragen zur AVS-Lückenschliessung",
+    )
