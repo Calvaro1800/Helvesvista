@@ -255,15 +255,20 @@ def build_chat_context(
 def _system_prompt(ctx: dict) -> str:
     if ctx["option"] == "—":
         return (
-            "Du bist HelveVista, ein freundlicher Schweizer Vorsorge-Assistent. "
-            "Du hilfst dem Nutzer, die richtige Option für seine Situation zu wählen. "
-            "Die 4 Optionen sind: "
-            "A) Dokumente verstehen — Vorsorgeausweis oder IK-Auszug hochladen und erklären lassen. "
-            "B) Koordinationsverfahren einleiten — 6-Schritt-Prozess für Stellenwechsel oder AHV-Anfrage. "
-            "C) Ich weiss nicht wo anfangen — HelveVista analysiert die Situation. "
-            "D) LPP-Einkauf / AVS-Lücke verstehen. "
-            "Beantworte allgemeine Fragen und empfehle am Ende immer die passende Option. "
-            "Antworte auf Deutsch, freundlich und präzise."
+            "Du bist HelveVista — auf dieser Seite AUSSCHLIESSLICH als Wegweiser für die Optionenwahl.\n\n"
+            "DEINE EINZIGE AUFGABE: Erkläre, was jede Option bedeutet, und empfehle, "
+            "welche am besten zur Situation des Nutzers passt.\n\n"
+            "Du DARFST NIEMALS: Daten sammeln, Koordinationsverfahren einleiten, "
+            "Analysen starten, Aufgaben ausführen oder irgendeinen Prozess starten.\n\n"
+            "Die 4 Optionen:\n"
+            "A) Dokumente verstehen — Vorsorgeausweis oder IK-Auszug hochladen und erklären lassen.\n"
+            "B) Koordinationsverfahren einleiten — 6-Schritt-Prozess für Stellenwechsel oder AHV-Anfrage.\n"
+            "C) Ich weiss nicht wo anfangen — HelveVista analysiert die Situation.\n"
+            "D) LPP-Einkauf / AVS-Lücke verstehen.\n\n"
+            "Falls der Nutzer fragt, etwas zu starten oder durchzuführen: "
+            "Antworte mit: 'Bitte wählen Sie Option B, dann begleite ich Sie Schritt für Schritt.'\n\n"
+            "STIL: Deutsch, freundlich, maximal 3 Sätze pro Antwort. "
+            "Beende JEDE Antwort mit einer klaren Empfehlung, welche Option am besten passt."
         )
     return (
         "Du bist HelveVista, ein Vorsorge-Assistent für das Schweizer 3-Säulen-System. "
@@ -361,13 +366,18 @@ def inject() -> None:
     if "chat_input_cycle" not in st.session_state:
         st.session_state.chat_input_cycle = 0
 
-    # Auto-open once per page (scenario + option combination).
-    scenario = st.session_state.get("selected_scenario")
-    if scenario and st.session_state.get("logged_in"):
-        page_key = f"_chat_auto_opened_{scenario}_{current_option or 'picker'}"
-        if not st.session_state.get(page_key):
+    # Auto-open: immediately on picker page; on other pages only after login+scenario.
+    if current_option is None:
+        if not st.session_state.get("_chat_auto_opened_picker"):
             st.session_state.chat_open = True
-            st.session_state[page_key] = True
+            st.session_state["_chat_auto_opened_picker"] = True
+    else:
+        scenario = st.session_state.get("selected_scenario")
+        if scenario and st.session_state.get("logged_in"):
+            page_key = f"_chat_auto_opened_{scenario}_{current_option}"
+            if not st.session_state.get(page_key):
+                st.session_state.chat_open = True
+                st.session_state[page_key] = True
 
     # Inject CSS
     st.markdown(_CSS, unsafe_allow_html=True)
@@ -375,10 +385,10 @@ def inject() -> None:
     # Inject audio script via same-origin iframe
     _components.html(_AUDIO_JS, height=0)
 
-    if not st.session_state.chat_open:
-        if st.button("\U0001f4ac", key="chat-fab-btn"):
-            st.session_state.chat_open = True
-            st.rerun()
+    # FAB always visible; click toggles chat open/closed.
+    if st.button("\U0001f4ac", key="chat-fab-btn"):
+        st.session_state.chat_open = not st.session_state.chat_open
+        st.rerun()
 
     # On the picker page main() returns early — render panel inline.
     if current_option is None and st.session_state.get("chat_open"):

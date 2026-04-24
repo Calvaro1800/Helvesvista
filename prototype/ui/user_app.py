@@ -1137,14 +1137,23 @@ VORSORGE_TO_SPARRING = {
     # Old employer / old PK
     "arbeitgeber":            "alter_arbeitgeber",
     "arbeitgeber_ort":        "alter_arbeitgeber_ort",
+    "ort_alter_ag":           "alter_arbeitgeber_ort",
     "austrittsdatum":         "austrittsdatum",
     "email":                  "email_alte_pk",
     # Financial data
     "freizuegigkeit_chf":     "freizuegigkeit_chf",
     "koordinationsabzug_chf": "koordinationsabzug_chf",
-    # New employer (if present in Vorsorgeausweis)
+    # New employer
     "neuer_arbeitgeber":      "neuer_arbeitgeber",
+    "ort_neuer_ag":           "neuer_arbeitgeber_ort",
+    "email_neue_pk":          "email_neue_pk",
     "eintrittsdatum":         "eintrittsdatum",
+    "eintrittsdatum_neu":     "eintrittsdatum",
+    # IK-Auszug (AVS) fields
+    "beitragsjahre":          "beitragsjahre",
+    "beitragsluecken":        "luecken_beitraege",
+    "ausgleichskasse":        "ausgleichskasse",
+    "email_avs":              "email_avs_ausgleichskasse",
 }
 
 FIELD_LABELS_DE = {
@@ -1457,6 +1466,20 @@ def _sparring_buddy_chat() -> None:
         if _full_name:
             st.session_state.sparring_collected["name"] = _full_name
             needs_update = True
+
+    # (1b) Profile: stellenwechsel-specific fields (populated if profile ever stores them)
+    _sparring_scenario = st.session_state.get("selected_scenario", "stellenwechsel")
+    if _profile and _sparring_scenario != "revue_avs":
+        for _pf_key, _sp_key in [
+            ("ort_alter_ag", "alter_arbeitgeber_ort"),
+            ("neuer_arbeitgeber", "neuer_arbeitgeber"),
+            ("ort_neuer_ag", "neuer_arbeitgeber_ort"),
+            ("email_neue_pk", "email_neue_pk"),
+        ]:
+            _val = _profile.get(_pf_key)
+            if _val and not st.session_state.sparring_collected.get(_sp_key):
+                st.session_state.sparring_collected[_sp_key] = _val
+                needs_update = True
 
     # (2) Extracted document data (from Option A or Step-1 upload)
     for _src_key in ("extracted_doc_data", "extracted_doc_info"):

@@ -82,12 +82,25 @@ def extract_doc_info(uploaded_files: list) -> dict:
     })
 
     system_prompt = (
-        "Analysiere dieses Dokument und extrahiere alle verfügbaren Informationen. "
+        "Analysiere dieses Vorsorge-Dokument (Vorsorgeausweis ODER IK-Auszug) und extrahiere alle verfügbaren Informationen. "
+        "Für einen Vorsorgeausweis hat das Dokument zwei Abschnitte: 'Alter Arbeitgeber' und 'Neuer Arbeitgeber'. "
+        "Extrahiere diese Felder getrennt:\n"
+        "- arbeitgeber / arbeitgeber_ort / email: aus dem Abschnitt 'Alter Arbeitgeber'\n"
+        "- neuer_arbeitgeber / ort_neuer_ag / email_neue_pk: aus dem Abschnitt 'Neuer Arbeitgeber'\n"
+        "- eintrittsdatum: Eintrittsdatum beim alten Arbeitgeber (Alter Arbeitgeber)\n"
+        "- eintrittsdatum_neu: Eintrittsdatum beim neuen Arbeitgeber (Neuer Arbeitgeber), falls vorhanden\n"
+        "Für einen IK-Auszug (Individueller Kontenauszug der AHV) extrahiere zusätzlich aus dem Abschnitt 'Zusammenfassung':\n"
+        "- beitragsjahre: Anzahl Beitragsjahre, z.B. '18 Jahre (2007–2024)'\n"
+        "- beitragsluecken: Beitragslücken, z.B. 'Keine' oder eine Beschreibung\n"
+        "- ausgleichskasse: Name der Ausgleichskasse, z.B. 'SVA Zürich'\n"
+        "- email_avs: E-Mail der Ausgleichskasse (Feld 'E-Mail Ausgleichskasse')\n"
         "Antworte NUR mit JSON:\n"
         '{"name":null,"geburtsdatum":null,"ahv_nummer":null,"pensionskasse":null,'
         '"arbeitgeber":null,"arbeitgeber_ort":null,"freizuegigkeit_chf":null,'
         '"koordinationsabzug_chf":null,"austrittsdatum":null,"eintrittsdatum":null,'
-        '"email":null,"telefon":null,"issued_date":null}\n'
+        '"email":null,"telefon":null,"issued_date":null,'
+        '"neuer_arbeitgeber":null,"ort_neuer_ag":null,"email_neue_pk":null,"eintrittsdatum_neu":null,'
+        '"beitragsjahre":null,"beitragsluecken":null,"ausgleichskasse":null,"email_avs":null}\n'
         "issued_date: Datum des Dokuments als ISO-String (YYYY-MM-DD) oder null. "
         "Setze null wenn nicht vorhanden. Nur JSON."
     )
