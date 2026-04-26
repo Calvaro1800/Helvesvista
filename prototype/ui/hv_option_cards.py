@@ -113,6 +113,14 @@ def _has_reusable_data() -> bool:
     return any(profile.get(k) for k in _DOC_KEYS)
 
 
+def _fmt_chf(val) -> str:
+    try:
+        cleaned = str(val).replace("'", "").replace(",", "").strip()
+        return f"CHF {float(cleaned):,.0f}"
+    except (ValueError, TypeError):
+        return f"CHF {val}"
+
+
 def _data_summary(scenario: str, option: str) -> str:
     """Return a markdown block listing known data and what's still needed."""
     profile = st.session_state.get("profile_data", {})
@@ -128,11 +136,11 @@ def _data_summary(scenario: str, option: str) -> str:
     if profile.get("geburtsjahr"):
         lines.append(f"- Geburtsjahr: {profile['geburtsjahr']}")
     if extracted.get("freizuegigkeit_chf"):
-        lines.append(f"- Freizügigkeitsguthaben: CHF {extracted['freizuegigkeit_chf']:,}")
+        lines.append(f"- Freizügigkeitsguthaben: {_fmt_chf(extracted['freizuegigkeit_chf'])}")
     if extracted.get("ahv_nummer"):
         lines.append(f"- AHV-Nummer: {extracted['ahv_nummer']}")
     if extracted.get("koordinationsabzug_chf"):
-        lines.append(f"- Koordinationsabzug: CHF {extracted['koordinationsabzug_chf']:,}")
+        lines.append(f"- Koordinationsabzug: {_fmt_chf(extracted['koordinationsabzug_chf'])}")
     if extracted.get("beitragsjahre"):
         lines.append(f"- Beitragsjahre AHV: {extracted['beitragsjahre']}")
     missing = _OPTION_MISSING.get(scenario, {}).get(option)
