@@ -981,6 +981,89 @@ def _simulate_response(actor: Actor, context: dict) -> dict:
     return DEMO_RESPONSES[actor]
 
 
+def _llm_judge_response(actor: Actor, resp: dict, scenario: str) -> str:
+    """LLM-as-Judge: evaluate one institutional response and return a structured verdict."""
+    cache_key = f"llm_judge_{scenario}_{actor.value}"
+    if st.session_state.get(cache_key):
+        return st.session_state[cache_key]
+
+    # ── Build per-actor fallback (existing hardcoded text) ────────────────────
+    if actor == Actor.OLD_PK:
+        chf = resp.get("freizuegigkeit_chf")
+        chf_clause = f"von {_fmt_chf(chf)} " if isinstance(chf, (int, float)) else ""
+        fallback = (
+            f"Ihre alte Pensionskasse hat Ihr Freizügigkeitsguthaben "
+            f"{chf_clause}bestätigt. "
+            f"Dieses Guthaben wird automatisch auf Ihre neue Pensionskasse "
+            f"übertragen. Sie müssen nichts weiter unternehmen."
+        )
+    elif actor == Actor.NEW_PK:
+        datum = resp.get("eintrittsdatum")
+        koord = resp.get("bvg_koordinationsabzug")
+        datum_clause = (
+            f"Ihren Eintritt per {datum} bestätigt"
+            if datum and str(datum) not in ("None", "null", "—", "")
+            else "Ihren Eintritt zum vereinbarten Eintrittsdatum bestätigt"
+        )
+        koord_clause = (
+            f"Der BVG-Koordinationsabzug beträgt {_fmt_chf(koord)}. "
+            if isinstance(koord, (int, float)) else ""
+        )
+        fallback = (
+            f"Ihre neue Pensionskasse hat {datum_clause}. "
+            f"{koord_clause}"
+            f"Bewahren Sie die Eingangsbestätigung für Ihre Unterlagen auf."
+        )
+    else:  # AVS
+        jahre = resp.get("beitragsjahre")
+        fallback = (
+            f"Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
+            f"Sie verfügen über {jahre} Beitragsjahre. "
+            f"Dieser Auszug ist massgebend für die Berechnung Ihrer künftigen AHV-Rente."
+            if jahre else
+            "Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
+            "Dieser Auszug dokumentiert Ihre bisherigen AHV-Beitragsjahre "
+            "und ist massgebend für Ihre künftige Rentenberechnung."
+        )
+
+    if not _use_llm():
+        st.session_state[cache_key] = fallback
+        return fallback
+
+    fields = "\n".join(
+        f"- {k}: {v}" for k, v in resp.items() if v is not None
+    )
+    system_prompt = (
+        "Du bist ein neutraler Qualitätsprüfer für Vorsorge-Koordinationen in der Schweiz. "
+        "Bewerte die folgende institutionelle Antwort anhand der erwarteten Pflichtfelder. "
+        "Antworte NUR mit einem strukturierten deutschen Urteil in diesem Format:\n"
+        "✅ [Was bestätigt wurde]\n"
+        "📅 [Fristen oder Daten wenn vorhanden, sonst weglassen]\n"
+        "⚠️ [Offene Punkte oder Warnungen wenn vorhanden, sonst weglassen]\n"
+        "───\n"
+        "URTEIL: [Dossier vollständig / Nachfrage erforderlich / Eskalation empfohlen]\n"
+        "→ [Eine konkrete Handlungsempfehlung in einem Satz]"
+    )
+    user_msg = f"Institution: {ACTOR_LABELS[actor]}\n\nFelder der Antwort:\n{fields}"
+
+    try:
+        import anthropic as _anthropic  # noqa: PLC0415
+        _client = _anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        _r = _client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=300,
+            temperature=0,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_msg}],
+        )
+        verdict = _r.content[0].text.strip()
+    except Exception:
+        verdict = fallback
+
+    st.session_state[cache_key] = verdict
+    return verdict
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # LOGIN PAGE
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2741,60 +2824,36 @@ def _vs_step_5_ergebnis() -> None:
             resp = inst_resp.get(actor.value) or DEMO_RESPONSES.get(actor, {})
             name = ACTOR_LABELS[actor]
 
-            # Build actor-specific explanation and document name
+            # doc_name used in follow-up email templates
             if actor == Actor.OLD_PK:
-                chf     = resp.get("freizuegigkeit_chf")
-                chf_fmt = _fmt_chf(chf)
-                chf_clause = f"von **{chf_fmt}** " if isinstance(chf, (int, float)) else ""
-                explanation = (
-                    f"Ihre alte Pensionskasse hat Ihr Freizügigkeitsguthaben "
-                    f"{chf_clause}bestätigt. "
-                    f"Dieses Guthaben wird automatisch auf Ihre neue Pensionskasse "
-                    f"übertragen. Sie müssen nichts weiter unternehmen."
-                )
                 doc_name = "Freizügigkeitsabrechnung"
-
             elif actor == Actor.NEW_PK:
-                datum = resp.get("eintrittsdatum")
-                koord = resp.get("bvg_koordinationsabzug")
-                koord_fmt = _fmt_chf(koord)
-                if datum and str(datum) not in ("None", "null", "—", ""):
-                    datum_clause = f"Ihren Eintritt per **{datum}** bestätigt"
-                else:
-                    datum_clause = "Ihren Eintritt zum vereinbarten Eintrittsdatum bestätigt"
-                if isinstance(koord, (int, float)):
-                    koord_clause = f"Der BVG-Koordinationsabzug beträgt **{koord_fmt}**. "
-                else:
-                    koord_clause = ""
-                explanation = (
-                    f"Ihre neue Pensionskasse hat {datum_clause}. "
-                    f"{koord_clause}"
-                    f"Bewahren Sie die Eingangsbestätigung für Ihre Unterlagen auf."
-                )
                 doc_name = "Eingangsbestätigung"
-
             else:  # AVS
-                jahre  = resp.get("beitragsjahre")
-                if jahre:
-                    explanation = (
-                        f"Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
-                        f"Sie verfügen über {jahre} Beitragsjahre. "
-                        f"Dieser Auszug ist massgebend für die Berechnung Ihrer "
-                        f"künftigen AHV-Rente."
-                    )
-                else:
-                    explanation = (
-                        "Die AHV-Ausgleichskasse hat Ihren IK-Auszug bereitgestellt. "
-                        "Dieser Auszug dokumentiert Ihre bisherigen AHV-Beitragsjahre "
-                        "und ist massgebend für Ihre künftige Rentenberechnung."
-                    )
                 doc_name = "IK-Auszug"
 
             st.markdown(
                 f'<div class="hv-label" style="margin-top:0.8rem;">{name}</div>',
                 unsafe_allow_html=True,
             )
-            st.info(explanation)
+            _judge_key = f"llm_judge_{_ergebnis_scenario}_{actor.value}"
+            if not st.session_state.get(_judge_key):
+                with st.spinner("HelveVista prüft die Antwort…"):
+                    verdict = _llm_judge_response(actor, resp, _ergebnis_scenario)
+            else:
+                verdict = st.session_state[_judge_key]
+            verdict_html = verdict.replace("\n", "<br>")
+            st.markdown(
+                '<div style="font-size:0.72rem;color:#C9A84C;font-weight:600;'
+                'letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.3rem;">'
+                '🔍 KI-Qualitätsprüfung</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<div style="background:rgba(201,168,76,0.06);border:1px solid #C9A84C33;'
+                f'border-radius:6px;padding:1rem;">{verdict_html}</div>',
+                unsafe_allow_html=True,
+            )
 
             col_a, col_b = st.columns(2)
 
