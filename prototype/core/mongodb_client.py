@@ -103,6 +103,22 @@ def delete_case(case_id: str) -> bool:
         return False
 
 
+def list_all_active_cases(limit: int = 50) -> list:
+    """Return all EN_COURS cases across all users, sorted by updated_at descending."""
+    col = _get_collection()
+    if col is None:
+        return []
+    try:
+        docs = col.find(
+            {"status": "EN_COURS"},
+            {"_id": 0}
+        ).sort("updated_at", -1).limit(limit)
+        return list(docs)
+    except Exception as e:
+        print(f"[MongoDB] list_all_active_cases failed: {e}")
+        return []
+
+
 def list_known_emails() -> list[str]:
     """Return sorted list of distinct user emails from the cases collection."""
     col = _get_collection()

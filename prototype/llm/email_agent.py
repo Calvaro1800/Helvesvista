@@ -28,6 +28,8 @@ import json
 import os
 import time
 from datetime import datetime, timezone
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
@@ -275,6 +277,8 @@ def send_institution_email(
     actor: Actor,
     case: dict,
     institution_email: str,
+    attachment_b64: Optional[str] = None,
+    attachment_filename: Optional[str] = None,
 ) -> bool:
     """
     Sends a structured coordination email from info.helvevista@gmail.com
@@ -284,9 +288,11 @@ def send_institution_email(
     record to case_state.json under ``email_sent[actor.value]``.
 
     Parameters:
-        actor:              Institutional actor (OLD_PK, NEW_PK, AVS).
-        case:               Case dict loaded from case_state.json.
-        institution_email:  Recipient address (e.g. "info@assepro.ch").
+        actor:               Institutional actor (OLD_PK, NEW_PK, AVS).
+        case:                Case dict loaded from case_state.json.
+        institution_email:   Recipient address (e.g. "info@assepro.ch").
+        attachment_b64:      Optional base64-encoded file content.
+        attachment_filename: Original filename for the attachment.
 
     Returns:
         True on success, False on failure.
@@ -320,11 +326,27 @@ def send_institution_email(
         + _EMAIL_FOOTER.format(case_id=case_id, actor_value=actor.value)
     )
 
-    msg = MIMEMultipart("alternative")
+    mime_type = "mixed" if (attachment_b64 and attachment_filename) else "alternative"
+    msg = MIMEMultipart(mime_type)
     msg["From"]    = f"{SENDER_DISPLAY} <{SENDER_ADDRESS}>"
     msg["To"]      = institution_email
     msg["Subject"] = subject
     msg.attach(MIMEText(body, "plain", "utf-8"))
+
+    if attachment_b64 and attachment_filename:
+        try:
+            attachment_data = base64.b64decode(attachment_b64)
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment_data)
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                "attachment",
+                filename=attachment_filename,
+            )
+            msg.attach(part)
+        except Exception:
+            pass  # malformed b64 — send text-only
 
     raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
 

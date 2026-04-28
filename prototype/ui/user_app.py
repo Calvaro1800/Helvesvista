@@ -23,6 +23,7 @@ Run
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
@@ -454,7 +455,17 @@ hr { border-color: #1A3048 !important; margin: 1.5rem 0 !important; }
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _load_case() -> dict:
-    """Read case_state.json. Returns {} if missing or corrupt."""
+    """MongoDB-primary read. Falls back to case_state.json, then {}."""
+    case_id = st.session_state.get("case_id")
+    if case_id:
+        try:
+            from core.mongodb_client import load_case as mongo_load
+            doc = mongo_load(case_id)
+            if doc:
+                return doc.get("data", doc)
+        except Exception:
+            pass
+    # Fallback: local JSON cache (MongoDB unavailable or no case_id set)
     if CASE_FILE.exists():
         try:
             with open(CASE_FILE, "r", encoding="utf-8") as f:
@@ -465,16 +476,10 @@ def _load_case() -> dict:
 
 
 def _save_case(state: dict) -> None:
-    """Write case_state.json (best-effort; silently swallows IO errors)."""
-    # Ensure a stable case_id exists before writing
+    """MongoDB-primary write. JSON is a local session cache only."""
     if not st.session_state.get("case_id"):
         st.session_state.case_id = str(uuid.uuid4())[:8].upper()
-    try:
-        with open(CASE_FILE, "w", encoding="utf-8") as f:
-            json.dump(state, f, ensure_ascii=False, indent=2)
-    except IOError:
-        pass
-    # Sync to MongoDB Atlas (non-blocking)
+    # Primary: write to MongoDB Atlas
     try:
         from core.mongodb_client import save_case as mongo_save
         _case_id = st.session_state.get("case_id", "UNKNOWN")
@@ -488,6 +493,12 @@ def _save_case(state: dict) -> None:
         _status = state.get("status", "EN_COURS")
         mongo_save(_case_id, _email, _scenario, _status, state)
     except Exception:
+        pass
+    # Cache: write to local JSON as fallback
+    try:
+        with open(CASE_FILE, "w", encoding="utf-8") as f:
+            json.dump(state, f, ensure_ascii=False, indent=2)
+    except IOError:
         pass
 
 
@@ -736,8 +747,14 @@ def _render_sidebar() -> None:
         ):
             new_role = "institution" if role == "versicherter" else "versicherter"
             st.session_state.role      = new_role
-            st.session_state.vs_step   = 1
             st.session_state.inst_view = "dashboard"
+            if new_role == "institution":
+                st.session_state.vs_step = 1
+            else:
+                st.session_state.responses_done = set()
+                _reloaded = _load_case()
+                if _reloaded:
+                    st.session_state.case = _reloaded
             st.rerun()
 
         st.markdown("")
@@ -1169,13 +1186,31 @@ def _page_login() -> None:
             st.session_state.user_name  = name.strip()
             st.session_state.user_email = email.strip()
 
-            existing = _load_case()
-            if existing:
-                st.session_state.case = existing
-            else:
-                fresh = _new_case(name.strip(), email.strip())
-                st.session_state.case = fresh
-                _save_case(fresh)
+            if chosen == "versicherter":
+                # Load most recent EN_COURS case from MongoDB for this user
+                try:
+                    from core.mongodb_client import list_cases
+                    recent = list_cases(email.strip())
+                    active = [c for c in recent if c.get("status") == "EN_COURS"]
+                    if active:
+                        latest = active[0]
+                        st.session_state.case_id = latest["case_id"]
+                        case_data = latest.get("data", {})
+                        st.session_state.case = case_data
+                        _save_case(case_data)   # refresh local JSON cache
+                    else:
+                        fresh = _new_case(name.strip(), email.strip())
+                        st.session_state.case = fresh
+                        _save_case(fresh)
+                except Exception:
+                    existing = _load_case()
+                    if existing:
+                        st.session_state.case = existing
+                    else:
+                        fresh = _new_case(name.strip(), email.strip())
+                        st.session_state.case = fresh
+                        _save_case(fresh)
+            # Institution role: no personal case at login; _inst_dashboard lists all cases
 
             st.rerun()
 
@@ -2855,6 +2890,28 @@ def _vs_step_5_ergebnis() -> None:
                 unsafe_allow_html=True,
             )
 
+            # Feature 3 — institution document download
+            _inst_docs = fresh_case.get("institution_documents", {})
+            _doc_info  = _inst_docs.get(actor.value)
+            if _doc_info:
+                _doc_filename = _doc_info.get("filename", "Dokument")
+                _doc_b64      = _doc_info.get("data_b64", "")
+                _ext = _doc_filename.rsplit(".", 1)[-1].lower() if "." in _doc_filename else ""
+                _mime = (
+                    "application/pdf" if _ext == "pdf" else
+                    "image/png"       if _ext == "png" else
+                    "image/jpeg"      if _ext in ("jpg", "jpeg") else
+                    "application/octet-stream"
+                )
+                st.download_button(
+                    label="📎 Dokument herunterladen",
+                    data=base64.b64decode(_doc_b64),
+                    file_name=_doc_filename,
+                    mime=_mime,
+                    key=f"dl_inst_doc_{actor.value}",
+                )
+                st.caption(_doc_filename)
+
             col_a, col_b = st.columns(2)
 
             with col_a:
@@ -3606,6 +3663,55 @@ def _build_outgoing_email_preview(actor: Actor, case: dict, response: dict) -> s
     )
 
 
+def _build_outgoing_email_plain(actor: Actor, case: dict, response: dict) -> str:
+    """Build plain-text version of the outgoing institution response email."""
+    case_id     = case.get("case_id", "—")
+    actor_label = ACTOR_LABELS[actor]
+    actor_email = f"administration@{actor.value.lower().replace('_', '-')}.ch"
+    subject     = f"Re: {_ACTOR_EMAIL_SUBJECT[actor]} — Fall {case_id}"
+    today       = time.strftime("%d. %B %Y")
+    user_name   = case.get("user_name", "den/die Versicherte/n")
+
+    if actor == Actor.OLD_PK:
+        chf   = response.get("freizuegigkeit_chf")
+        rows  = (
+            f"  · Freizügigkeitsguthaben: {_fmt_chf(chf)}\n"
+            f"  · Austrittsdatum: {_fmt_str(response.get('austrittsdatum'))}\n"
+            f"  · Status: {_fmt_str(response.get('status'))}"
+        )
+    elif actor == Actor.NEW_PK:
+        koord   = response.get("bvg_koordinationsabzug")
+        pflicht = "Ja" if response.get("bvg_pflicht") else "Nein"
+        rows = (
+            f"  · Eintrittsdatum: {_fmt_str(response.get('eintrittsdatum'))}\n"
+            f"  · BVG-Koordinationsabzug: {_fmt_chf(koord)}\n"
+            f"  · BVG-Pflicht: {pflicht}"
+        )
+    else:  # AVS
+        _bj = response.get("beitragsjahre")
+        _lk = response.get("luecken")
+        rows = (
+            f"  · IK-Auszug: {_fmt_str(response.get('ik_auszug'))}\n"
+            f"  · Beitragsjahre: {_fmt_str(_bj) if _bj is None else _bj}\n"
+            f"  · Beitragslücken: {'nicht angegeben' if _lk is None else _lk}"
+        )
+
+    return (
+        f"Von:     {actor_label} <{actor_email}>\n"
+        f"An:      HelveVista <koordination@helvevista.ch>\n"
+        f"Betreff: {subject}\n"
+        f"Datum:   {today}\n"
+        f"\n"
+        f"Sehr geehrte Koordinationsstelle,\n\n"
+        f"wir bestätigen folgende Angaben für {user_name}:\n\n"
+        f"{rows}\n\n"
+        f"Diese Angaben wurden geprüft und sind rechtsverbindlich.\n"
+        f"Bei Rückfragen stehen wir Ihnen gerne zur Verfügung.\n\n"
+        f"Mit freundlichen Grüssen,\n"
+        f"{actor_label}"
+    )
+
+
 def _inst_header(actor: Actor) -> None:
     """Render institution portal header: name + INSTITUTION badge."""
     col_title, col_badge = st.columns([4, 1])
@@ -3789,12 +3895,93 @@ def _render_person_summary_card(case: dict) -> None:
                 st.markdown(_fhtml(lbl, val), unsafe_allow_html=True)
 
 
+def _inst_case_picker(actor: Actor) -> None:
+    """List all active cases across all users for the institution to select."""
+    st.markdown(
+        '<div class="hv-label">Aktive Anfragen</div>',
+        unsafe_allow_html=True,
+    )
+    try:
+        from core.mongodb_client import list_all_active_cases
+        cases = list_all_active_cases()
+    except Exception:
+        cases = []
+
+    # Only show cases where this actor has been activated
+    actor_cases = [
+        c for c in cases
+        if actor.value in c.get("data", {}).get("activated_actors", [])
+    ]
+
+    if not actor_cases:
+        st.markdown(
+            '<div class="hv-empty-state">'
+            '<div class="icon">📭</div>'
+            '<div class="text">Keine aktiven Anfragen.<br>'
+            'Sie werden per E-Mail benachrichtigt, sobald<br>'
+            'ein Fall für Sie vorliegt.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    for c in actor_cases:
+        data      = c.get("data", {})
+        case_id   = c.get("case_id", "—")
+        user_name = data.get("user_name", "—")
+        user_email = data.get("user_email", "")
+        scenario  = (c.get("scenario") or "stellenwechsel").upper()
+        updated   = c.get("updated_at")
+        responded = data.get("institution_responded", {}).get(actor.value, False)
+
+        date_str = ""
+        if updated:
+            try:
+                date_str = updated.strftime("%d.%m.%Y %H:%M")
+            except Exception:
+                date_str = str(updated)[:16]
+
+        badge_color = "#4CAF82" if responded else "#C9A84C"
+        badge_label = "Beantwortet" if responded else "Offen"
+        email_suffix = f" · {user_email}" if user_email else ""
+
+        with st.container(border=True):
+            col_info, col_btn = st.columns([4, 1])
+            with col_info:
+                st.markdown(
+                    f'<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">'
+                    f'<span style="background:{badge_color}22; color:{badge_color}; '
+                    f'border:1px solid {badge_color}; border-radius:4px; '
+                    f'padding:2px 8px; font-size:0.7rem;">{badge_label}</span>'
+                    f'<span style="color:#FFFFFF; font-size:0.88rem; font-weight:500;">'
+                    f'{scenario}</span>'
+                    f'<span class="hv-case-id">{case_id}</span>'
+                    f'<span style="color:#3E5F7A; font-size:0.78rem; margin-left:auto;">'
+                    f'{date_str}</span>'
+                    f'</div>'
+                    f'<div style="color:#8AAEC8; font-size:0.82rem; margin-top:0.3rem;">'
+                    f'{user_name}{email_suffix}</div>',
+                    unsafe_allow_html=True,
+                )
+            with col_btn:
+                if st.button("Öffnen", key=f"inst_open_{case_id}",
+                             use_container_width=True):
+                    st.session_state.case_id = case_id
+                    st.session_state.case    = data
+                    _save_case(data)
+                    st.rerun()
+
+
 def _inst_dashboard() -> None:
     """Institution dashboard — professional two-column layout with case overview."""
 
     if st.button("← Zurück zur Versicherter-Ansicht"):
-        st.session_state.role      = "versicherter"
-        st.session_state.inst_view = "dashboard"
+        st.session_state.role           = "versicherter"
+        st.session_state.inst_view      = "dashboard"
+        st.session_state.responses_done = set()
+        _reloaded = _load_case()
+        if _reloaded:
+            st.session_state.case = _reloaded
         st.rerun()
 
     # Institution selector
@@ -3813,6 +4000,16 @@ def _inst_dashboard() -> None:
     st.session_state.inst_actor = actor
 
     _inst_header(actor)
+
+    # Multi-user: show all active cases when none is currently selected
+    if not st.session_state.get("case_id"):
+        _inst_case_picker(actor)
+        return
+
+    # Back button when viewing a specific case
+    if st.button("← Alle Fälle", key="inst_back_to_list"):
+        st.session_state.case_id = None
+        st.rerun()
 
     case = _load_case()
 
@@ -4198,16 +4395,51 @@ def _inst_form() -> None:
                     help="Anzahl Beitragslückenjahre",
                 )
 
-    # Outgoing email preview (full width, below)
+        # Feature 2 — document upload
+        case_id = case.get("case_id", "unknown")
+        doc_key = f"inst_doc_{case_id}"
+        uploaded_doc = st.file_uploader(
+            "Dokument beilegen (optional)",
+            type=["pdf", "png", "jpg", "jpeg"],
+            key=f"inst_doc_uploader_{case_id}",
+        )
+        st.caption("z.B. IK-Auszug, Freizügigkeitsabrechnung")
+        if uploaded_doc is not None:
+            existing_doc = st.session_state.get(doc_key, {})
+            if existing_doc.get("filename") != uploaded_doc.name:
+                doc_b64 = base64.b64encode(uploaded_doc.read()).decode()
+                st.session_state[doc_key] = {
+                    "filename": uploaded_doc.name,
+                    "data_b64": doc_b64,
+                }
+                c = _load_case()
+                c.setdefault("institution_documents", {})[actor.value] = {
+                    "filename": uploaded_doc.name,
+                    "uploaded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "data_b64": doc_b64,
+                }
+                _save_case(c)
+
+    # Feature 1 — editable outgoing email text area (full width, below)
     st.markdown("---")
     st.markdown(
         '<div class="hv-label">Vorschau Ihrer Antwort-E-Mail</div>',
         unsafe_allow_html=True,
     )
     st.caption(
-        "Diese E-Mail wird nach Ihrer Übermittlung an koordination@helvevista.ch gesendet:"
+        "Diese E-Mail wird nach Ihrer Übermittlung an koordination@helvevista.ch gesendet. "
+        "Sie können den Text vor dem Absenden anpassen:"
     )
-    st.markdown(_build_outgoing_email_preview(actor, case, response), unsafe_allow_html=True)
+    case_id = case.get("case_id", "unknown")
+    email_override_key = f"inst_email_override_{case_id}"
+    default_email_text = _build_outgoing_email_plain(actor, case, response)
+    st.text_area(
+        "E-Mail-Text",
+        value=default_email_text,
+        height=280,
+        key=email_override_key,
+        label_visibility="collapsed",
+    )
 
     st.markdown("<div style='height:0.4rem'></div>", unsafe_allow_html=True)
 
@@ -4223,7 +4455,21 @@ def _inst_form() -> None:
             c.setdefault("institution_responses", {})[actor.value]     = response
             c.setdefault("institution_responded", {})[actor.value]     = True
             c.setdefault("institution_response_date", {})[actor.value] = now_str
+            _case_id = c.get("case_id", "unknown")
+            _email_override = st.session_state.get(f"inst_email_override_{_case_id}", "")
+            if _email_override:
+                c.setdefault("institution_email_text", {})[actor.value] = _email_override
             _save_case(c)
+            _inst_doc = c.get("institution_documents", {}).get(actor.value)
+            if _inst_doc:
+                _recipient = "info.helvevista@gmail.com"
+                send_institution_email(
+                    actor,
+                    c,
+                    _recipient,
+                    attachment_b64=_inst_doc.get("data_b64"),
+                    attachment_filename=_inst_doc.get("filename"),
+                )
             st.session_state.inst_view = "done"
             st.rerun()
 
@@ -5153,6 +5399,13 @@ def main() -> None:
 
     if not st.session_state.logged_in:
         _page_login()
+        return
+
+    if st.session_state.get("role") == "institution":
+        view = st.session_state.inst_view
+        if   view == "dashboard": _inst_dashboard()
+        elif view == "form":      _inst_form()
+        elif view == "done":      _inst_done()
         return
 
     if not st.session_state.profile_complete:
