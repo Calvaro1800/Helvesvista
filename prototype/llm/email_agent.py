@@ -26,6 +26,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import tempfile
 import time
 from datetime import datetime, timezone
 from email import encoders
@@ -247,27 +248,50 @@ def get_gmail_service():
             "google-auth-httplib2 google-api-python-client"
         ) from exc
 
-    if not CREDENTIALS_PATH.exists():
+    # Resolve credential paths: prefer Streamlit Cloud secrets, fall back to local files.
+    try:
+        import streamlit as st
+        creds_content = st.secrets.get("GMAIL_CREDENTIALS")
+        token_content = st.secrets.get("GMAIL_TOKEN")
+        if creds_content and token_content:
+            creds_path = Path(tempfile.gettempdir()) / "hv_credentials.json"
+            token_path = Path(tempfile.gettempdir()) / "hv_token.json"
+            creds_path.write_text(
+                creds_content if isinstance(creds_content, str)
+                else json.dumps(dict(creds_content))
+            )
+            token_path.write_text(
+                token_content if isinstance(token_content, str)
+                else json.dumps(dict(token_content))
+            )
+        else:
+            creds_path = CREDENTIALS_PATH
+            token_path = TOKEN_PATH
+    except Exception:
+        creds_path = CREDENTIALS_PATH
+        token_path = TOKEN_PATH
+
+    if not creds_path.exists():
         raise FileNotFoundError(
-            f"credentials.json nicht gefunden: {CREDENTIALS_PATH}\n"
+            f"credentials.json nicht gefunden: {creds_path}\n"
             "Bitte credentials.json vom Google Cloud Console herunterladen "
             "und im Projektverzeichnis ablegen."
         )
 
     creds: Optional[object] = None
 
-    if TOKEN_PATH.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
+    if token_path.exists():
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
             flow  = InstalledAppFlow.from_client_secrets_file(
-                str(CREDENTIALS_PATH), SCOPES
+                str(creds_path), SCOPES
             )
             creds = flow.run_local_server(port=0)
-        with open(TOKEN_PATH, "w", encoding="utf-8") as fh:
+        with open(token_path, "w", encoding="utf-8") as fh:
             fh.write(creds.to_json())
 
     return build("gmail", "v1", credentials=creds)
