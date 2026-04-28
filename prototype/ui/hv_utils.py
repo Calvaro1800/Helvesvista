@@ -18,12 +18,6 @@ MODEL = "claude-sonnet-4-20250514"
 
 
 def get_llm_client() -> anthropic.Anthropic:
-    import streamlit as st
-    try:
-        debug_key = st.secrets.get("ANTHROPIC_API_KEY")
-        st.write(f"DEBUG: secret key found = {bool(debug_key)}, env key found = {bool(os.environ.get('ANTHROPIC_API_KEY'))}")
-    except Exception as e:
-        st.write(f"DEBUG: secrets error = {e}")
     try:
         import streamlit as st
         api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
