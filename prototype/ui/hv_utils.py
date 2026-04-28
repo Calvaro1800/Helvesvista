@@ -18,7 +18,11 @@ MODEL = "claude-sonnet-4-20250514"
 
 
 def get_llm_client() -> anthropic.Anthropic:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    try:
+        import streamlit as st
+        api_key = st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    except Exception:
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY not set")
     return anthropic.Anthropic(api_key=api_key)
