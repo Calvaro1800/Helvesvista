@@ -49,6 +49,7 @@ from llm.email_agent import (
     send_institution_email,
 )
 from ui.hv_utils import extract_doc_info as _extract_doc_info
+from ui.hv_styles import HV_MOBILE_CSS
 
 
 def _json_default(obj):
@@ -448,6 +449,7 @@ hr { border-color: #1A3048 !important; margin: 1.5rem 0 !important; }
         """,
         unsafe_allow_html=True,
     )
+    st.markdown(HV_MOBILE_CSS, unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
