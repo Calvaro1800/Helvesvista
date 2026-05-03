@@ -465,8 +465,9 @@ def _load_case() -> dict:
             doc = mongo_load(case_id)
             if doc:
                 return doc.get("data", doc)
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.warning("[MongoDB] load_case raised, falling back to JSON: %s", e)
     # Fallback: local JSON cache (MongoDB unavailable or no case_id set)
     if CASE_FILE.exists():
         try:

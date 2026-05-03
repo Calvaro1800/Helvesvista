@@ -2,6 +2,7 @@
 MongoDB Atlas client for HelveVista.
 Falls back silently if connection fails — never crashes the app.
 """
+import logging
 import os
 from dotenv import load_dotenv
 
@@ -21,6 +22,7 @@ def _get_collection():
         from pymongo.server_api import ServerApi
         uri = os.environ.get("MONGODB_URI")
         if not uri:
+            logging.warning("[MongoDB] MONGODB_URI not set — using JSON fallback")
             return None
         _client = MongoClient(uri, server_api=ServerApi("1"),
                               serverSelectionTimeoutMS=3000)
@@ -30,7 +32,7 @@ def _get_collection():
         print("[MongoDB] Connected to Atlas ✓")
         return _cases
     except Exception as e:
-        print(f"[MongoDB] Connection failed (using JSON fallback): {e}")
+        logging.warning("[MongoDB] Connection failed (using JSON fallback): %s", e)
         return None
 
 
