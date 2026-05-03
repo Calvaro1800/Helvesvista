@@ -2461,10 +2461,17 @@ def _vs_step_4_koordination() -> None:
         inst_emails = manual_case.get("institution_emails", {})
         case_id     = manual_case.get("case_id", "")
 
-        creds_missing = not (
-            __import__("pathlib").Path(__file__).parent.parent.parent
-            / "credentials.json"
-        ).exists()
+        try:
+            creds_missing = not (
+                (st.secrets.get("GMAIL_CREDENTIALS") and
+                 st.secrets.get("GMAIL_TOKEN"))
+                or
+                (Path(__file__).parent.parent.parent / "credentials.json").exists()
+            )
+        except Exception:
+            creds_missing = not (
+                Path(__file__).parent.parent.parent / "credentials.json"
+            ).exists()
 
         if creds_missing:
             st.warning(
