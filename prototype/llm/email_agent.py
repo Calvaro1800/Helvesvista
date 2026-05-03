@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import os
 import tempfile
 import time
@@ -253,9 +254,20 @@ def get_gmail_service():
         import streamlit as st
         creds_content = st.secrets.get("GMAIL_CREDENTIALS")
         token_content = st.secrets.get("GMAIL_TOKEN")
+        logging.warning(
+            "[Gmail] st.secrets read: GMAIL_CREDENTIALS=%s (type=%s), GMAIL_TOKEN=%s (type=%s)",
+            "found" if creds_content else "missing",
+            type(creds_content).__name__,
+            "found" if token_content else "missing",
+            type(token_content).__name__,
+        )
         if creds_content and token_content:
             creds_path = Path(tempfile.gettempdir()) / "hv_credentials.json"
             token_path = Path(tempfile.gettempdir()) / "hv_token.json"
+            logging.warning(
+                "[Gmail] Writing secrets to temp files: creds=%s  token=%s",
+                creds_path, token_path,
+            )
             creds_path.write_text(
                 creds_content if isinstance(creds_content, str)
                 else json.dumps(dict(creds_content))
@@ -267,9 +279,17 @@ def get_gmail_service():
         else:
             creds_path = CREDENTIALS_PATH
             token_path = TOKEN_PATH
-    except Exception:
+            logging.warning(
+                "[Gmail] Secrets incomplete — falling back to local files: creds=%s  token=%s",
+                creds_path, token_path,
+            )
+    except Exception as _secrets_exc:
         creds_path = CREDENTIALS_PATH
         token_path = TOKEN_PATH
+        logging.warning(
+            "[Gmail] st.secrets unavailable (%s) — falling back to local files: creds=%s  token=%s",
+            _secrets_exc, creds_path, token_path,
+        )
 
     if not creds_path.exists():
         raise FileNotFoundError(
