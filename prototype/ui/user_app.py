@@ -563,7 +563,7 @@ def _init_session() -> None:
         # Chat (H3 — Perceived Support)
         "chat_history":     [],          # list of {question, answer}
         # Demo mode toggle
-        "auto_sim_enabled": False,       # False → institutions must respond manually (Live-Modus default)
+        "auto_sim_enabled": True,        # True → auto-simulate institution responses (demo default)
         # Document extraction (Feature 2)
         "extracted_doc_data":  {},       # fields extracted from uploaded documents
         "_doc_upload_names":   [],       # track uploaded file names to detect new uploads
