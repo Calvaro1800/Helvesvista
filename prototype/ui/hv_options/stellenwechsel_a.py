@@ -8,8 +8,11 @@ Educational only — no institution contact, no state machine.
 from __future__ import annotations
 import os
 import json
+from datetime import datetime, timezone
+from uuid import uuid4
 import streamlit as st
 import anthropic
+from core.mongodb_client import save_case as mongo_save
 from ui.hv_utils import extract_doc_info
 from ui.hv_styles import HV_GOLD, HV_MUTED, HV_BORDER, HV_CARD
 from ui.hv_option_chat import render_option_chat
@@ -139,6 +142,17 @@ def render(profile: dict, case: dict) -> None:
     st.divider()
     if not st.session_state.get("case_done"):
         if st.button("Meine Vorsorgesituation speichern", key="close_sw_a"):
+            mongo_save(
+                case_id=uuid4().hex[:8].upper(),
+                user_email=st.session_state.get("user_email", ""),
+                scenario="stellenwechsel",
+                status="TERMINE",
+                data={
+                    "option": "A",
+                    "user_name": st.session_state.get("user_name", ""),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
             st.session_state["case_done"] = True
             st.rerun()
     else:
