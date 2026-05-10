@@ -119,22 +119,18 @@ def render(profile: dict, case: dict) -> None:
     )
 
     st.divider()
-    if not st.session_state.get("case_done"):
-        if st.button("Meine Vorsorgesituation speichern", key="close_sw_c"):
-            mongo_save(
-                case_id=uuid4().hex[:8].upper(),
-                user_email=st.session_state.get("user_email", ""),
-                scenario="stellenwechsel",
-                status="TERMINE",
-                data={
-                    "option": "C",
-                    "user_name": st.session_state.get("user_name", ""),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
-            )
-            st.session_state["case_done"] = True
-            st.rerun()
-    else:
+    if st.button("Meine Vorsorgesituation speichern", key="close_sw_c"):
+        mongo_save(
+            case_id=uuid4().hex[:8].upper(),
+            user_email=st.session_state.get("user_email", ""),
+            scenario="stellenwechsel",
+            status="TERMINE",
+            data={
+                "option": "C",
+                "user_name": st.session_state.get("user_name", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
         st.success("Ihre Vorsorgesituation wurde gespeichert. Vielen Dank!")
 
 
