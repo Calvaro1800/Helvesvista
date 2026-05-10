@@ -112,10 +112,11 @@ def render(profile: dict, case: dict) -> None:
     )
 
     st.divider()
-    if st.button("Meine Vorsorgesituation speichern", key="close_avs_c"):
-        from ui.user_app import _save_case
-        _save_case(case)
-        st.session_state["case_done"] = True
+    if not st.session_state.get("case_done"):
+        if st.button("Meine Vorsorgesituation speichern", key="close_avs_c"):
+            st.session_state["case_done"] = True
+            st.rerun()
+    else:
         st.success("Ihre Vorsorgesituation wurde gespeichert. Vielen Dank!")
 
 
