@@ -125,3 +125,10 @@ def render(profile: dict, case: dict) -> None:
         opening_msg=_CHAT_OPENING,
         title="Fragen zur AVS-Lückenschliessung",
     )
+
+    st.divider()
+    if st.button("Meine Vorsorgesituation speichern", key="close_avs_d"):
+        from ui.user_app import _save_case
+        _save_case(case)
+        st.session_state["case_done"] = True
+        st.success("Ihre Vorsorgesituation wurde gespeichert. Vielen Dank!")

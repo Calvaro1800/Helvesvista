@@ -111,6 +111,13 @@ def render(profile: dict, case: dict) -> None:
         emoji="🗺️",
     )
 
+    st.divider()
+    if st.button("Meine Vorsorgesituation speichern", key="close_avs_c"):
+        from ui.user_app import _save_case
+        _save_case(case)
+        st.session_state["case_done"] = True
+        st.success("Ihre Vorsorgesituation wurde gespeichert. Vielen Dank!")
+
 
 def _llm_reply(messages: list[dict]) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
